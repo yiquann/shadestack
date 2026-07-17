@@ -23,7 +23,10 @@ export function useCameraStream(facingMode: FacingMode): CameraState {
     async function start() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode },
+          // Hint a modest resolution: detectForVideo processes at the native
+          // frame size, so requesting 720p rather than accepting 1080p+ trims
+          // per-frame tracking cost. `ideal` degrades gracefully if unsupported.
+          video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false,
         });
         if (!active) {

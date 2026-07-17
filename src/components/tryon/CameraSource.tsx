@@ -16,6 +16,13 @@ import type { AppliedLayer } from "@/lib/tryon/session";
 
 const WIDTH = 500;
 const HEIGHT = 600;
+// Cap the render backing store's long edge regardless of the camera's native
+// resolution. Masks are re-rasterized (CSS blur) and re-uploaded per layer per
+// frame at the canvas size, so an unbounded 1080p feed would blow the 30fps
+// budget; and the per-category featherPx values are tuned for a ~500–600px
+// canvas, so an unbounded size also hardens the feather. Bounding here fixes
+// both. Aspect ratio is preserved, so object-cover still matches the <video>.
+const MAX_RENDER_EDGE = 640;
 const SHOW_FPS = process.env.NODE_ENV !== "production";
 
 type Props = {
@@ -84,16 +91,19 @@ export function CameraSource({ layers }: Props) {
       avgFrameMs = avgFrameMs * 0.9 + frameMs * 0.1;
 
       if (video.readyState >= 2 && video.videoWidth > 0) {
-        // Match the canvas backing store to the camera's native resolution so
-        // the base video pass draws 1:1 (a full-quad draw would otherwise
-        // stretch a landscape feed into the canvas's fixed size, distorting it)
-        // and landmark points — normalized to the video frame — map to the
+        // Size the canvas backing store to the camera's aspect ratio (capped at
+        // MAX_RENDER_EDGE) so the base video pass draws without distortion — a
+        // full-quad draw into a mismatched fixed size would stretch a landscape
+        // feed — and landmark points, normalized to the video frame, map to the
         // right pixels. CSS object-cover then crops the display to match the
         // <video> underneath. Only reassign on change; setting canvas.width
         // resizes (and clears) the drawing buffer.
-        if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
+        const scale = Math.min(1, MAX_RENDER_EDGE / Math.max(video.videoWidth, video.videoHeight));
+        const targetW = Math.round(video.videoWidth * scale);
+        const targetH = Math.round(video.videoHeight * scale);
+        if (canvas.width !== targetW || canvas.height !== targetH) {
+          canvas.width = targetW;
+          canvas.height = targetH;
         }
         const interval = detectionInterval(avgFrameMs);
         if (frameCount % interval === 0) {
