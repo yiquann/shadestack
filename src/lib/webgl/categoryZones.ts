@@ -23,8 +23,10 @@ export const CATEGORY_RENDER: Record<CatalogProduct["category"], CategoryRenderC
   },
   BRONZER: {
     entries: [
-      { zone: "forehead", featherPx: 14 },
-      { zone: "jawline", featherPx: 14 },
+      { zone: "leftCheekbone", featherPx: 14 },
+      { zone: "rightCheekbone", featherPx: 14 },
+      { zone: "leftTemple", featherPx: 12 },
+      { zone: "rightTemple", featherPx: 12 },
     ],
     blendMode: "multiply",
     baseOpacity: 0.18,

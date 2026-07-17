@@ -20,6 +20,17 @@ export const ZONE_LANDMARKS = {
   rightCheek: [280, 330, 347, 411, 425, 266],
   forehead: [109, 10, 338, 296, 336, 285, 8, 55, 107],
   jawline: [172, 136, 150, 149, 176, 148, 152, 377, 400, 378, 379, 365, 397, 288, 361],
+  // Bronzer zones (the classic contour placement): the outer cheekbone — a
+  // streak lateral to and above the blush apple, angled up toward the ear — and
+  // the temples/sides of the hairline. Deliberately NOT the whole jaw perimeter
+  // or the center forehead (that read as a muddy lower-face + forehead-center
+  // wash). Cheekbone points sit just outside the blush apple (leftCheek/
+  // rightCheek) so the two products meet at the cheek's outer edge; temple
+  // points hug the lateral hairline drawn from the top of faceOval.
+  leftCheekbone: [117, 116, 123, 187, 118],
+  rightCheekbone: [346, 345, 352, 411, 347],
+  leftTemple: [21, 54, 103, 67, 104, 68],
+  rightTemple: [251, 284, 332, 297, 333, 298],
 } as const;
 
 export type ZoneName = keyof typeof ZONE_LANDMARKS;
