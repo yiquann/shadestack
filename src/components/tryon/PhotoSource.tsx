@@ -14,14 +14,10 @@ type Props = {
 
 export function PhotoSource({ layers }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
   const [url, setUrl] = useState<string | null>(null);
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null);
-  const [size, setSize] = useState({ width: MAX_WIDTH, height: MAX_HEIGHT });
-  const state = useFaceLandmarks(imageRef, imageLoaded);
 
-  // Revoke the object URL whenever it changes or the component unmounts.
+  // The single owner of revocation: cleanup runs with the previous url on
+  // change (revoking the replaced photo) and with the current url on unmount.
   useEffect(() => {
     return () => {
       if (url) URL.revokeObjectURL(url);
@@ -31,13 +27,61 @@ export function PhotoSource({ layers }: Props) {
   function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setImageLoaded(false);
-    setImageEl(null);
-    setUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return URL.createObjectURL(file);
-    });
+    // Create the URL in the handler (runs once), not in a setState updater
+    // (which React invokes twice under Strict Mode, leaking the extra URL).
+    setUrl(URL.createObjectURL(file));
   }
+
+  return (
+    <div>
+      {url ? (
+        // Keyed by url so a new photo remounts the detection hook fresh,
+        // rather than showing the previous photo's stale landmark result.
+        <PhotoPreview key={url} url={url} layers={layers} />
+      ) : (
+        <div className="flex flex-col items-center gap-4 rounded-card border border-border bg-surface px-6 py-10 text-center">
+          <p className="max-w-xs text-xs text-textMuted">
+            Use a well-lit selfie with no makeup for the most accurate try-on results.
+          </p>
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="rounded-pill bg-accent px-5 py-2 text-xs font-semibold text-surface transition-colors duration-150 hover:bg-accent-hover"
+          >
+            Upload a photo
+          </button>
+        </div>
+      )}
+
+      {url && (
+        <div className="mt-3 flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="rounded-pill bg-chip px-4 py-2 text-xs font-semibold text-textSecondary transition-colors duration-150 hover:bg-chip-hover hover:text-ink"
+          >
+            Choose another photo
+          </button>
+        </div>
+      )}
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        onChange={onPick}
+        className="hidden"
+      />
+    </div>
+  );
+}
+
+function PhotoPreview({ url, layers }: { url: string; layers: AppliedLayer[] }) {
+  const imageRef = useRef<HTMLImageElement>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null);
+  const [size, setSize] = useState({ width: MAX_WIDTH, height: MAX_HEIGHT });
+  const state = useFaceLandmarks(imageRef, imageLoaded);
 
   function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
     const img = e.currentTarget;
@@ -48,30 +92,6 @@ export function PhotoSource({ layers }: Props) {
     });
     setImageLoaded(true);
     setImageEl(img);
-  }
-
-  if (!url) {
-    return (
-      <div className="flex flex-col items-center gap-4 rounded-card border border-border bg-surface px-6 py-10 text-center">
-        <p className="max-w-xs text-xs text-textMuted">
-          Use a well-lit selfie with no makeup for the most accurate try-on results.
-        </p>
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="rounded-pill bg-accent px-5 py-2 text-xs font-semibold text-surface transition-colors duration-150 hover:bg-accent-hover"
-        >
-          Upload a photo
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          onChange={onPick}
-          className="hidden"
-        />
-      </div>
-    );
   }
 
   return (
@@ -97,22 +117,6 @@ export function PhotoSource({ layers }: Props) {
             layers={layers}
           />
         )}
-      </div>
-      <div className="mt-3 flex items-center justify-center gap-3">
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="rounded-pill bg-chip px-4 py-2 text-xs font-semibold text-textSecondary transition-colors duration-150 hover:bg-chip-hover hover:text-ink"
-        >
-          Choose another photo
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          onChange={onPick}
-          className="hidden"
-        />
       </div>
       {state.status === "loading" && (
         <p className="mt-2 text-center text-xs text-textMuted">Analyzing photo…</p>
