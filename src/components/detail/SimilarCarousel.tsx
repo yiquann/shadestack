@@ -13,14 +13,16 @@ export function SimilarCarousel({ productId }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    setError(false);
     fetch(`/api/products/${productId}/similar`)
       .then((res) => {
         if (!res.ok) throw new Error("request failed");
         return res.json();
       })
       .then((data: CatalogProduct[]) => {
-        if (!cancelled) setSimilar(data);
+        if (!cancelled) {
+          setSimilar(data);
+          setError(false);
+        }
       })
       .catch(() => {
         if (!cancelled) setError(true);
