@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useFaceLandmarks } from "@/lib/facemesh/useFaceLandmarks";
-import { LandmarkDebugOverlay } from "./LandmarkDebugOverlay";
+import { RenderCanvas } from "./RenderCanvas";
 
 const IMAGE_WIDTH = 500;
 const IMAGE_HEIGHT = 600;
@@ -10,6 +10,7 @@ const IMAGE_HEIGHT = 600;
 export function FaceMeshTracker() {
   const imageRef = useRef<HTMLImageElement>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null);
   const state = useFaceLandmarks(imageRef, imageLoaded);
 
   // The <img src> is present in the server-rendered HTML, so the browser can
@@ -19,6 +20,7 @@ export function FaceMeshTracker() {
   useEffect(() => {
     if (imageRef.current?.complete && imageRef.current.naturalWidth > 0) {
       setImageLoaded(true);
+      setImageEl(imageRef.current);
     }
   }, []);
 
@@ -35,11 +37,19 @@ export function FaceMeshTracker() {
           alt="Illustrated model face"
           width={IMAGE_WIDTH}
           height={IMAGE_HEIGHT}
-          onLoad={() => setImageLoaded(true)}
+          onLoad={(e) => {
+            setImageLoaded(true);
+            setImageEl(e.currentTarget);
+          }}
           className="h-full w-full object-cover"
         />
-        {state.status === "detected" && (
-          <LandmarkDebugOverlay points={state.points} width={IMAGE_WIDTH} height={IMAGE_HEIGHT} />
+        {state.status === "detected" && imageEl && (
+          <RenderCanvas
+            image={imageEl}
+            points={state.points}
+            width={IMAGE_WIDTH}
+            height={IMAGE_HEIGHT}
+          />
         )}
       </div>
       {state.status === "loading" && (

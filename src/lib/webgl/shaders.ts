@@ -25,7 +25,11 @@ uniform vec3 uTintColor;
 uniform float uOpacity;
 void main() {
   float maskAlpha = texture2D(uMask, vTexCoord).a;
-  gl_FragColor = vec4(uTintColor, maskAlpha * uOpacity);
+  float a = maskAlpha * uOpacity;
+  // Premultiply alpha into RGB so the compositor's blend factors can localize
+  // the multiply/screen effect to the mask (outside the mask, a=0 so this
+  // contributes (0,0,0,0), leaving the destination untouched).
+  gl_FragColor = vec4(uTintColor * a, a);
 }
 `;
 
