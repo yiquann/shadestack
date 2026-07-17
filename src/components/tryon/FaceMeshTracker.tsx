@@ -17,7 +17,7 @@ export function FaceMeshTracker() {
   // onLoad listener below — the native "load" event fires once and is missed
   // in that race. Catch the already-complete case on mount as a fallback.
   useEffect(() => {
-    if (imageRef.current?.complete) {
+    if (imageRef.current?.complete && imageRef.current.naturalWidth > 0) {
       setImageLoaded(true);
     }
   }, []);
