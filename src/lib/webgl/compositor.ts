@@ -1,6 +1,11 @@
 import type { Point } from "@/lib/facemesh/polygon";
-import { BASE_VERTEX_SHADER, IMAGE_FRAGMENT_SHADER, TINT_FRAGMENT_SHADER, createProgram } from "./shaders";
-import { buildMaskTexture } from "./maskTexture";
+import {
+  BASE_VERTEX_SHADER,
+  IMAGE_FRAGMENT_SHADER,
+  TINT_FRAGMENT_SHADER,
+  createProgram,
+} from "./shaders";
+import { drawMask } from "./maskTexture";
 
 export type BlendMode = "multiply" | "screen";
 
@@ -10,6 +15,11 @@ export type Layer = {
   opacity: number;
   blendMode: BlendMode;
   featherPx: number;
+};
+
+export type CompositeRenderer = {
+  render(source: TexImageSource, layers: Layer[]): void;
+  dispose(): void;
 };
 
 export function hexToRgb01(hex: string): [number, number, number] {
@@ -26,19 +36,31 @@ const QUAD_VERTICES = new Float32Array([
   1, 1, 1, 0,
 ]);
 
-export function renderComposite(
-  canvas: HTMLCanvasElement,
-  image: HTMLImageElement,
-  layers: Layer[]
-): void {
-  const gl = canvas.getContext("webgl", { preserveDrawingBuffer: true });
-  if (!gl) throw new Error("WebGL is not supported in this browser");
+function configureTexture(gl: WebGLRenderingContext, tex: WebGLTexture): void {
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+}
 
-  // Per the task brief's troubleshooting note: with UNPACK_FLIP_Y_WEBGL set to
-  // true, the rendered face came out upside-down and misaligned with the
-  // landmark-derived mask (which is computed in normal, non-flipped canvas
-  // space), verified via an actual Playwright screenshot. Setting this to
-  // false fixes both the orientation and the mask alignment.
+/**
+ * Owns a WebGL context and all its GL objects for the lifetime of `canvas`.
+ * Shaders/buffers/textures are created once; `render` re-uploads the source
+ * and per-layer masks each call. Suitable for a 30+ fps video loop as well as
+ * one-shot static renders.
+ */
+export function createCompositeRenderer(canvas: HTMLCanvasElement): CompositeRenderer {
+  const glOrNull = canvas.getContext("webgl", { preserveDrawingBuffer: true });
+  if (!glOrNull) throw new Error("WebGL is not supported in this browser");
+  // Re-bind to a definitely-non-null const: TS narrowing on `glOrNull` does
+  // not propagate into the nested closures below (bindQuad, maskTextureAt,
+  // render, dispose), since they could in principle run at any later time.
+  // Assigning here gives `gl` a non-nullable declared type from the start.
+  const gl = glOrNull;
+
+  // See phase 4 report: FLIP_Y=true rendered the face upside-down and
+  // misaligned with the (non-flipped) landmark masks. Keep it false.
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
 
   const imageProgram = createProgram(gl, BASE_VERTEX_SHADER, IMAGE_FRAGMENT_SHADER);
@@ -48,79 +70,93 @@ export function renderComposite(
   gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, QUAD_VERTICES, gl.STATIC_DRAW);
 
-  function bindQuadAttributes(gl: WebGLRenderingContext, program: WebGLProgram) {
-    const positionLoc = gl.getAttribLocation(program, "aPosition");
-    const texCoordLoc = gl.getAttribLocation(program, "aTexCoord");
-    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
-    gl.enableVertexAttribArray(positionLoc);
-    gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 16, 0);
-    gl.enableVertexAttribArray(texCoordLoc);
-    gl.vertexAttribPointer(texCoordLoc, 2, gl.FLOAT, false, 16, 8);
-  }
-
-  gl.viewport(0, 0, canvas.width, canvas.height);
-  gl.clearColor(0, 0, 0, 0);
-  gl.clear(gl.COLOR_BUFFER_BIT);
-
-  gl.disable(gl.BLEND);
-  gl.useProgram(imageProgram);
-  bindQuadAttributes(gl, imageProgram);
   const imageTexture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, imageTexture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, imageTexture);
-  gl.uniform1i(gl.getUniformLocation(imageProgram, "uImage"), 0);
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  if (!imageTexture) throw new Error("Failed to create image texture");
+  configureTexture(gl, imageTexture);
 
-  gl.enable(gl.BLEND);
-  gl.useProgram(tintProgram);
-  bindQuadAttributes(gl, tintProgram);
-  const maskTextures: WebGLTexture[] = [];
-  for (const layer of layers) {
-    // TINT_FRAGMENT_SHADER outputs premultiplied color (uTintColor * a, a),
-    // where a = maskAlpha * opacity. With that premultiplication:
-    //   multiply: result = dst*(1 - a + a*tintColor)
-    //     via RGB factors (DST_COLOR, ONE_MINUS_SRC_ALPHA)
-    //   screen:   result = a*tintColor + dst*(1 - a*tintColor)
-    //     via RGB factors (ONE, ONE_MINUS_SRC_COLOR) — unchanged, since the
-    //     premultiplied source already carries the mask.
-    // Both use alpha factors (ZERO, ONE) so the destination alpha (opaque,
-    // from the base image draw) is preserved rather than being multiplied by
-    // the tint layer's alpha — verified empirically via Playwright pixel
-    // readback (see task-3-report.md): without this, the canvas's alpha (and,
-    // pre-premultiplication, its RGB) would be affected far outside each
-    // layer's mask instead of being localized to it.
-    if (layer.blendMode === "multiply") {
-      gl.blendFuncSeparate(gl.DST_COLOR, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
-    } else {
-      gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_COLOR, gl.ZERO, gl.ONE);
+  const maskPool: WebGLTexture[] = [];
+  const maskScratch = document.createElement("canvas");
+
+  const imageLoc = {
+    position: gl.getAttribLocation(imageProgram, "aPosition"),
+    texCoord: gl.getAttribLocation(imageProgram, "aTexCoord"),
+    uImage: gl.getUniformLocation(imageProgram, "uImage"),
+  };
+  const tintLoc = {
+    position: gl.getAttribLocation(tintProgram, "aPosition"),
+    texCoord: gl.getAttribLocation(tintProgram, "aTexCoord"),
+    uMask: gl.getUniformLocation(tintProgram, "uMask"),
+    uTintColor: gl.getUniformLocation(tintProgram, "uTintColor"),
+    uOpacity: gl.getUniformLocation(tintProgram, "uOpacity"),
+  };
+
+  function bindQuad(position: number, texCoord: number): void {
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+    gl.enableVertexAttribArray(position);
+    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 16, 0);
+    gl.enableVertexAttribArray(texCoord);
+    gl.vertexAttribPointer(texCoord, 2, gl.FLOAT, false, 16, 8);
+  }
+
+  function maskTextureAt(index: number): WebGLTexture {
+    let tex = maskPool[index];
+    if (!tex) {
+      const created = gl.createTexture();
+      if (!created) throw new Error("Failed to create mask texture");
+      configureTexture(gl, created);
+      tex = created;
+      maskPool[index] = tex;
     }
-    const maskTexture = buildMaskTexture(gl, layer.polygon, canvas.width, canvas.height, layer.featherPx);
-    maskTextures.push(maskTexture);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, maskTexture);
-    gl.uniform1i(gl.getUniformLocation(tintProgram, "uMask"), 0);
-    gl.uniform3fv(gl.getUniformLocation(tintProgram, "uTintColor"), layer.tintColor);
-    gl.uniform1f(gl.getUniformLocation(tintProgram, "uOpacity"), layer.opacity);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    return tex;
   }
 
-  // Every call to this function creates a fresh set of GL objects (shader
-  // programs, the quad buffer, the image texture, one mask texture per
-  // layer). With layers now changing on every opacity-slider drag tick
-  // (Phase 5), leaving these allocated would leak GPU resources and
-  // recompile both shader programs many times per second. Delete everything
-  // created in this call now that it has been drawn to the canvas.
-  for (const maskTexture of maskTextures) {
-    gl.deleteTexture(maskTexture);
+  function render(source: TexImageSource, layers: Layer[]): void {
+    const { width, height } = canvas;
+    gl.viewport(0, 0, width, height);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    // Base image pass.
+    gl.disable(gl.BLEND);
+    gl.useProgram(imageProgram);
+    bindQuad(imageLoc.position, imageLoc.texCoord);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, imageTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    gl.uniform1i(imageLoc.uImage, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    // Tint passes. Premultiplied source (see TINT_FRAGMENT_SHADER):
+    //   multiply -> (DST_COLOR, ONE_MINUS_SRC_ALPHA); screen -> (ONE, ONE_MINUS_SRC_COLOR)
+    //   alpha factors (ZERO, ONE) preserve the opaque base alpha.
+    gl.enable(gl.BLEND);
+    gl.useProgram(tintProgram);
+    bindQuad(tintLoc.position, tintLoc.texCoord);
+    layers.forEach((layer, i) => {
+      if (layer.blendMode === "multiply") {
+        gl.blendFuncSeparate(gl.DST_COLOR, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
+      } else {
+        gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_COLOR, gl.ZERO, gl.ONE);
+      }
+      const tex = maskTextureAt(i);
+      drawMask(maskScratch, layer.polygon, width, height, layer.featherPx);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, maskScratch);
+      gl.uniform1i(tintLoc.uMask, 0);
+      gl.uniform3fv(tintLoc.uTintColor, layer.tintColor);
+      gl.uniform1f(tintLoc.uOpacity, layer.opacity);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    });
   }
-  gl.deleteTexture(imageTexture);
-  gl.deleteBuffer(quadBuffer);
-  gl.deleteProgram(imageProgram);
-  gl.deleteProgram(tintProgram);
+
+  function dispose(): void {
+    for (const tex of maskPool) gl.deleteTexture(tex);
+    gl.deleteTexture(imageTexture);
+    gl.deleteBuffer(quadBuffer);
+    gl.deleteProgram(imageProgram);
+    gl.deleteProgram(tintProgram);
+  }
+
+  return { render, dispose };
 }

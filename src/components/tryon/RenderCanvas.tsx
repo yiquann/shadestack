@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { Point } from "@/lib/facemesh/polygon";
-import { renderComposite } from "@/lib/webgl/compositor";
+import { createCompositeRenderer, type CompositeRenderer } from "@/lib/webgl/compositor";
 import { buildGlLayers } from "@/lib/webgl/glLayers";
 import type { AppliedLayer } from "@/lib/tryon/session";
 
@@ -16,11 +16,21 @@ type Props = {
 
 export function RenderCanvas({ image, points, width, height, layers }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rendererRef = useRef<CompositeRenderer | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    renderComposite(canvas, image, buildGlLayers(layers, points, width, height));
+    const renderer = createCompositeRenderer(canvas);
+    rendererRef.current = renderer;
+    return () => {
+      renderer.dispose();
+      rendererRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    rendererRef.current?.render(image, buildGlLayers(layers, points, width, height));
   }, [image, points, width, height, layers]);
 
   return (
