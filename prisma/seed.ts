@@ -5,9 +5,7 @@ const prisma = new PrismaClient();
 
 async function main() {
   await prisma.product.deleteMany();
-  for (const product of seedProducts) {
-    await prisma.product.create({ data: product });
-  }
+  await prisma.product.createMany({ data: seedProducts });
   console.log(`Seeded ${seedProducts.length} products.`);
 }
 

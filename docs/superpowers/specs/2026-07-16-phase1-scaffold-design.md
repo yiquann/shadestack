@@ -16,6 +16,11 @@ roadmap: "Scaffold Next.js + Prisma; seed catalog from prototype `products[]` da
 1. **Database**: SQLite for local dev via Prisma (`provider = "sqlite"`). Schema stays
    Prisma-idiomatic and Postgres-compatible (no SQLite-only types); switching
    `provider` + `DATABASE_URL` is the only change needed to move to real Postgres later.
+   Known caveat: `Product.price Decimal` has no native fixed-point type on SQLite
+   (stored via NUMERIC/REAL affinity), so non-whole-cent values could lose precision
+   in local dev. Accepted for now — the field stays `Decimal` per CLAUDE.md's data
+   model rather than deviating to an `Int` cents representation; switching to
+   Postgres restores exact `Decimal` semantics.
 2. **Package manager**: npm (already present, no lockfile conflicts to resolve).
 3. **Seed catalog**: hand-authored, ~18-20 products spread across all 7 `Category`
    enum values (FOUNDATION, BLUSH, BRONZER, HIGHLIGHTER, EYESHADOW, LIPSTICK,

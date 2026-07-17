@@ -12,8 +12,6 @@
   --color-text-faint: #B8ADA5;
   --color-border: #EDE5DD;
   --color-surface: #FFFFFF;
-  --font-display: "DM Serif Display", serif;
-  --font-body: "DM Sans", sans-serif;
 }
 
 @theme inline {
