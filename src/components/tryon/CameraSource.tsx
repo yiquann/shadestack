@@ -84,6 +84,17 @@ export function CameraSource({ layers }: Props) {
       avgFrameMs = avgFrameMs * 0.9 + frameMs * 0.1;
 
       if (video.readyState >= 2 && video.videoWidth > 0) {
+        // Match the canvas backing store to the camera's native resolution so
+        // the base video pass draws 1:1 (a full-quad draw would otherwise
+        // stretch a landscape feed into the canvas's fixed size, distorting it)
+        // and landmark points — normalized to the video frame — map to the
+        // right pixels. CSS object-cover then crops the display to match the
+        // <video> underneath. Only reassign on change; setting canvas.width
+        // resizes (and clears) the drawing buffer.
+        if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+        }
         const interval = detectionInterval(avgFrameMs);
         if (frameCount % interval === 0) {
           const result = landmarker.detectForVideo(video, now);
@@ -148,7 +159,7 @@ export function CameraSource({ layers }: Props) {
           ref={canvasRef}
           width={WIDTH}
           height={HEIGHT}
-          className="pointer-events-none absolute inset-0 h-full w-full"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
           style={{ transform: "scaleX(-1)" }}
         />
         {SHOW_FPS && status === "ready" && (
