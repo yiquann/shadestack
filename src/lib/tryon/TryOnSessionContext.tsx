@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { CatalogProduct } from "@/lib/catalog/types";
 import {
   applyProduct,
@@ -27,15 +27,27 @@ type TryOnSessionValue = {
 const TryOnSessionContext = createContext<TryOnSessionValue | null>(null);
 
 export function TryOnSessionProvider({ children }: { children: ReactNode }) {
-  const [layers, setLayers] = useState<AppliedLayer[]>(() => {
+  const [layers, setLayers] = useState<AppliedLayer[]>([]);
+
+  // The provider is server-rendered (no "use client" boundary above it in
+  // (tabs)/layout.tsx), so the first client render must match the empty-array
+  // SSR output exactly. Reading localStorage happens here, post-mount, as an
+  // ordinary effect-driven re-render rather than during the initial render —
+  // this avoids a hydration mismatch for users with a persisted session.
+  useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw) as AppliedLayer[];
+      if (raw) {
+        // One-time hydration-safe load of an external store (localStorage)
+        // that is only available post-mount. Not the derived-state
+        // anti-pattern this rule targets.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setLayers(JSON.parse(raw) as AppliedLayer[]);
+      }
     } catch {
-      return [];
+      // localStorage unavailable or corrupt — start with an empty session.
     }
-    return [];
-  });
+  }, []);
 
   useEffect(() => {
     try {
@@ -46,15 +58,20 @@ export function TryOnSessionProvider({ children }: { children: ReactNode }) {
     }
   }, [layers]);
 
-  const value: TryOnSessionValue = {
-    layers,
-    addProduct: (product) => setLayers((prev) => applyProduct(prev, product)),
-    removeLayer: (category) => setLayers((prev) => removeLayerFn(prev, category)),
-    setOpacity: (category, opacity) => setLayers((prev) => setOpacityFn(prev, category, opacity)),
-    toggleVisible: (category) => setLayers((prev) => toggleVisibleFn(prev, category)),
-    moveLayer: (from, to) => setLayers((prev) => moveLayerFn(prev, from, to)),
-    clearLook: () => setLayers(clearLookFn()),
-  };
+  // Callbacks close over `setLayers`, which React guarantees is referentially
+  // stable across renders, so `layers` is the only real dependency.
+  const value: TryOnSessionValue = useMemo(
+    () => ({
+      layers,
+      addProduct: (product) => setLayers((prev) => applyProduct(prev, product)),
+      removeLayer: (category) => setLayers((prev) => removeLayerFn(prev, category)),
+      setOpacity: (category, opacity) => setLayers((prev) => setOpacityFn(prev, category, opacity)),
+      toggleVisible: (category) => setLayers((prev) => toggleVisibleFn(prev, category)),
+      moveLayer: (from, to) => setLayers((prev) => moveLayerFn(prev, from, to)),
+      clearLook: () => setLayers(clearLookFn()),
+    }),
+    [layers],
+  );
 
   return <TryOnSessionContext.Provider value={value}>{children}</TryOnSessionContext.Provider>;
 }
