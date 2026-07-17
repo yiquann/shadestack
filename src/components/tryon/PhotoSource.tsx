@@ -1,11 +1,132 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+import { useFaceLandmarks } from "@/lib/facemesh/useFaceLandmarks";
+import { RenderCanvas } from "./RenderCanvas";
 import type { AppliedLayer } from "@/lib/tryon/session";
 
-export function PhotoSource(_props: { layers: AppliedLayer[] }) {
+const MAX_WIDTH = 500;
+const MAX_HEIGHT = 600;
+
+type Props = {
+  layers: AppliedLayer[];
+};
+
+export function PhotoSource({ layers }: Props) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const [url, setUrl] = useState<string | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null);
+  const [size, setSize] = useState({ width: MAX_WIDTH, height: MAX_HEIGHT });
+  const state = useFaceLandmarks(imageRef, imageLoaded);
+
+  // Revoke the object URL whenever it changes or the component unmounts.
+  useEffect(() => {
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [url]);
+
+  function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageLoaded(false);
+    setImageEl(null);
+    setUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+  }
+
+  function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    const img = e.currentTarget;
+    const scale = Math.min(MAX_WIDTH / img.naturalWidth, MAX_HEIGHT / img.naturalHeight, 1);
+    setSize({
+      width: Math.round(img.naturalWidth * scale),
+      height: Math.round(img.naturalHeight * scale),
+    });
+    setImageLoaded(true);
+    setImageEl(img);
+  }
+
+  if (!url) {
+    return (
+      <div className="flex flex-col items-center gap-4 rounded-card border border-border bg-surface px-6 py-10 text-center">
+        <p className="max-w-xs text-xs text-textMuted">
+          Use a well-lit selfie with no makeup for the most accurate try-on results.
+        </p>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="rounded-pill bg-accent px-5 py-2 text-xs font-semibold text-surface transition-colors duration-150 hover:bg-accent-hover"
+        >
+          Upload a photo
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          onChange={onPick}
+          className="hidden"
+        />
+      </div>
+    );
+  }
+
   return (
-    <p className="mx-auto max-w-xs text-center text-xs text-textMuted">
-      Photo mode coming up.
-    </p>
+    <div>
+      <div
+        className="relative mx-auto overflow-hidden rounded-card"
+        style={{ width: size.width, height: size.height, maxWidth: "100%" }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          ref={imageRef}
+          src={url}
+          alt="Uploaded selfie"
+          onLoad={onImageLoad}
+          className="h-full w-full object-cover"
+        />
+        {state.status === "detected" && imageEl && (
+          <RenderCanvas
+            image={imageEl}
+            points={state.points}
+            width={size.width}
+            height={size.height}
+            layers={layers}
+          />
+        )}
+      </div>
+      <div className="mt-3 flex items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="rounded-pill bg-chip px-4 py-2 text-xs font-semibold text-textSecondary transition-colors duration-150 hover:bg-chip-hover hover:text-ink"
+        >
+          Choose another photo
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          onChange={onPick}
+          className="hidden"
+        />
+      </div>
+      {state.status === "loading" && (
+        <p className="mt-2 text-center text-xs text-textMuted">Analyzing photo…</p>
+      )}
+      {state.status === "no-face" && (
+        <p className="mt-2 text-center text-xs text-textMuted">
+          No face detected — try a clearer, front-facing selfie.
+        </p>
+      )}
+      {state.status === "error" && (
+        <p className="mt-2 text-center text-xs text-textMuted">
+          Could not analyze photo: {state.message}
+        </p>
+      )}
+    </div>
   );
 }
