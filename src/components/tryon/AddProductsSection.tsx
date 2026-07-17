@@ -2,35 +2,33 @@
 
 import { useState } from "react";
 import type { CatalogProduct } from "@/lib/catalog/types";
-import { CategoryChips } from "./CategoryChips";
-import { HeroBanner } from "./HeroBanner";
-import { ProductList } from "./ProductList";
-import { SearchOverlay } from "./SearchOverlay";
-import { SearchIconButton } from "./SearchIconButton";
-import { filterByCategory } from "./filtering";
+import { CategoryChips } from "@/components/catalog/CategoryChips";
+import { ProductList } from "@/components/catalog/ProductList";
+import { SearchOverlay } from "@/components/catalog/SearchOverlay";
+import { SearchIconButton } from "@/components/catalog/SearchIconButton";
+import { filterByCategory } from "@/components/catalog/filtering";
 import { ProductDetailSheet } from "@/components/detail/ProductDetailSheet";
 
 type Props = {
   products: CatalogProduct[];
 };
 
-export function DiscoverView({ products }: Props) {
-  const [activeCategory, setActiveCategory] = useState<CatalogProduct["category"] | "ALL">(
-    "ALL"
-  );
+export function AddProductsSection({ products }: Props) {
+  const [activeCategory, setActiveCategory] = useState<CatalogProduct["category"] | "ALL">("ALL");
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
 
   const visibleProducts = filterByCategory(products, activeCategory);
 
   return (
-    <>
-      <div className="flex items-center justify-between px-5 pt-6">
-        <h1 className="font-display text-2xl text-ink">Discover</h1>
+    <section className="pb-4">
+      <div className="flex items-center justify-between px-5 pt-2">
+        <h2 className="text-[11px] font-bold uppercase tracking-[0.8px] text-textMuted">
+          Add Products
+        </h2>
         <SearchIconButton onClick={() => setSearchOpen(true)} />
       </div>
       <CategoryChips active={activeCategory} onChange={setActiveCategory} />
-      <HeroBanner />
       <ProductList products={visibleProducts} onSelect={setSelectedProduct} />
       {searchOpen && (
         <SearchOverlay
@@ -43,11 +41,8 @@ export function DiscoverView({ products }: Props) {
         />
       )}
       {selectedProduct && (
-        <ProductDetailSheet
-          product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
-        />
+        <ProductDetailSheet product={selectedProduct} onClose={() => setSelectedProduct(null)} />
       )}
-    </>
+    </section>
   );
 }

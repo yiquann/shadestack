@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CatalogProduct } from "@/lib/catalog/types";
+import { useTryOnSession } from "@/lib/tryon/TryOnSessionContext";
 
 type Props = {
   product: CatalogProduct;
@@ -7,6 +8,8 @@ type Props = {
 };
 
 export function ProductCard({ product, onSelect }: Props) {
+  const { addProduct } = useTryOnSession();
+
   return (
     <div className="flex items-center gap-3 border-b border-border px-5 py-4 transition-colors duration-150 hover:bg-chip/40">
       <button
@@ -43,6 +46,8 @@ export function ProductCard({ product, onSelect }: Props) {
       </button>
       <Link
         href="/try-on"
+        onClick={() => addProduct(product)}
+        data-testid={`try-on-${product.id}`}
         className="shrink-0 rounded-pill bg-chip px-3 py-2 text-xs font-semibold text-ink transition-colors duration-150 hover:bg-chip-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
       >
         Try On
