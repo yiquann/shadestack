@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { landmarksToPolygon, type Point } from "@/lib/facemesh/polygon";
-import { ZONE_LANDMARKS } from "@/lib/facemesh/zones";
-import { renderComposite, hexToRgb01, type Layer } from "@/lib/webgl/compositor";
-import { CATEGORY_RENDER } from "@/lib/webgl/categoryZones";
+import type { Point } from "@/lib/facemesh/polygon";
+import { renderComposite } from "@/lib/webgl/compositor";
+import { buildGlLayers } from "@/lib/webgl/glLayers";
 import type { AppliedLayer } from "@/lib/tryon/session";
 
 type Props = {
@@ -21,21 +20,7 @@ export function RenderCanvas({ image, points, width, height, layers }: Props) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
-    const glLayers: Layer[] = layers
-      .filter((l) => l.visible)
-      .flatMap((l) => {
-        const config = CATEGORY_RENDER[l.category];
-        return config.entries.map(({ zone, featherPx }) => ({
-          polygon: landmarksToPolygon(points, ZONE_LANDMARKS[zone], width, height),
-          tintColor: hexToRgb01(l.product.colorHex),
-          opacity: config.baseOpacity * l.opacity,
-          blendMode: config.blendMode,
-          featherPx,
-        }));
-      });
-
-    renderComposite(canvas, image, glLayers);
+    renderComposite(canvas, image, buildGlLayers(layers, points, width, height));
   }, [image, points, width, height, layers]);
 
   return (
