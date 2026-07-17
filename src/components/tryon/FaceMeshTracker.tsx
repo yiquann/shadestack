@@ -3,11 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useFaceLandmarks } from "@/lib/facemesh/useFaceLandmarks";
 import { RenderCanvas } from "./RenderCanvas";
+import type { AppliedLayer } from "@/lib/tryon/session";
 
 const IMAGE_WIDTH = 500;
 const IMAGE_HEIGHT = 600;
 
-export function FaceMeshTracker() {
+type Props = {
+  layers: AppliedLayer[];
+};
+
+export function FaceMeshTracker({ layers }: Props) {
   const imageRef = useRef<HTMLImageElement>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null);
@@ -49,6 +54,7 @@ export function FaceMeshTracker() {
             points={state.points}
             width={IMAGE_WIDTH}
             height={IMAGE_HEIGHT}
+            layers={layers}
           />
         )}
       </div>
