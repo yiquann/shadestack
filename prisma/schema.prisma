@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Category {
+  FOUNDATION
+  BLUSH
+  BRONZER
+  HIGHLIGHTER
+  EYESHADOW
+  LIPSTICK
+  SETTING_POWDER
+}
+
+model Product {
+  id       String   @id @default(cuid())
+  category Category
+  name     String
+  brand    String
+  shade    String
+  colorHex String
+  price    Decimal
+  coverage String
+  finish   String
+  skinType String
+  desc     String
+}
+
+model SavedLook {
+  id        String   @id @default(cuid())
+  name      String
+  layers    Json
+  createdAt DateTime @default(now())
+}
