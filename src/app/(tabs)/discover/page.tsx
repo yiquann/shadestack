@@ -1,7 +1,14 @@
-export default function DiscoverPage() {
+import { prisma } from "@/lib/prisma";
+import { toCatalogProduct } from "@/lib/catalog/types";
+import { DiscoverView } from "@/components/catalog/DiscoverView";
+
+export default async function DiscoverPage() {
+  const products = await prisma.product.findMany();
+  const catalogProducts = products.map(toCatalogProduct);
+
   return (
-    <main className="px-5 pt-6">
-      <h1 className="font-display text-2xl text-ink">Discover</h1>
+    <main className="pb-6">
+      <DiscoverView products={catalogProducts} />
     </main>
   );
 }
