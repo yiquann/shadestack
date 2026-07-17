@@ -28,10 +28,30 @@
   --color-surface: var(--color-surface);
   --font-display: var(--font-display);
   --font-body: var(--font-body);
+  --radius-card: 16px;
+  --radius-pill: 20px;
 }
 
 body {
   background: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-body);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
