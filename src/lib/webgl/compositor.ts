@@ -80,6 +80,7 @@ export function renderComposite(
   gl.enable(gl.BLEND);
   gl.useProgram(tintProgram);
   bindQuadAttributes(gl, tintProgram);
+  const maskTextures: WebGLTexture[] = [];
   for (const layer of layers) {
     // TINT_FRAGMENT_SHADER outputs premultiplied color (uTintColor * a, a),
     // where a = maskAlpha * opacity. With that premultiplication:
@@ -100,6 +101,7 @@ export function renderComposite(
       gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_COLOR, gl.ZERO, gl.ONE);
     }
     const maskTexture = buildMaskTexture(gl, layer.polygon, canvas.width, canvas.height, layer.featherPx);
+    maskTextures.push(maskTexture);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, maskTexture);
     gl.uniform1i(gl.getUniformLocation(tintProgram, "uMask"), 0);
@@ -107,4 +109,18 @@ export function renderComposite(
     gl.uniform1f(gl.getUniformLocation(tintProgram, "uOpacity"), layer.opacity);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
+
+  // Every call to this function creates a fresh set of GL objects (shader
+  // programs, the quad buffer, the image texture, one mask texture per
+  // layer). With layers now changing on every opacity-slider drag tick
+  // (Phase 5), leaving these allocated would leak GPU resources and
+  // recompile both shader programs many times per second. Delete everything
+  // created in this call now that it has been drawn to the canvas.
+  for (const maskTexture of maskTextures) {
+    gl.deleteTexture(maskTexture);
+  }
+  gl.deleteTexture(imageTexture);
+  gl.deleteBuffer(quadBuffer);
+  gl.deleteProgram(imageProgram);
+  gl.deleteProgram(tintProgram);
 }

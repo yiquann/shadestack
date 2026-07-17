@@ -1,16 +1,6 @@
 "use client";
 
-import { CATEGORIES, type CatalogProduct } from "@/lib/catalog/types";
-
-const CATEGORY_LABELS: Record<CatalogProduct["category"], string> = {
-  FOUNDATION: "Foundation",
-  BLUSH: "Blush",
-  BRONZER: "Bronzer",
-  HIGHLIGHTER: "Highlighter",
-  EYESHADOW: "Eyeshadow",
-  LIPSTICK: "Lipstick",
-  SETTING_POWDER: "Setting Powder",
-};
+import { CATEGORIES, CATEGORY_LABELS, type CatalogProduct } from "@/lib/catalog/types";
 
 type Props = {
   active: CatalogProduct["category"] | "ALL";

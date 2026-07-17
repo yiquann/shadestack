@@ -4,6 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { AppliedLayer } from "@/lib/tryon/session";
 import { useTryOnSession } from "@/lib/tryon/TryOnSessionContext";
+import { CATEGORY_LABELS } from "@/lib/catalog/types";
 
 type Props = {
   layer: AppliedLayer;
@@ -45,7 +46,7 @@ export function LayerRow({ layer }: Props) {
       />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-ink">{layer.product.name}</p>
-        <p className="truncate text-xs text-textMuted">{layer.category}</p>
+        <p className="truncate text-xs text-textMuted">{CATEGORY_LABELS[layer.category]}</p>
         <input
           type="range"
           min={0}
