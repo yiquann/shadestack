@@ -24,6 +24,18 @@ export function AddProductsSection({ products }: Props) {
     appliedQuery
   );
 
+  function clearSearch() {
+    setQuery("");
+    setAppliedQuery("");
+  }
+
+  function selectCategory(category: CatalogProduct["category"] | "ALL") {
+    // Picking a category is a fresh browse intent — drop any active search so
+    // the category's own products show instead of an empty search result.
+    setActiveCategory(category);
+    clearSearch();
+  }
+
   return (
     <section className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 px-4 pt-3">
@@ -31,7 +43,7 @@ export function AddProductsSection({ products }: Props) {
           Add Products
         </h2>
         <form
-          className="mt-2"
+          className="relative mt-2"
           onSubmit={(e) => {
             e.preventDefault();
             setAppliedQuery(query);
@@ -43,12 +55,22 @@ export function AddProductsSection({ products }: Props) {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search products…"
             aria-label="Search products"
-            className="w-full rounded-pill border border-border bg-surface px-4 py-2 text-sm text-ink outline-none transition-colors duration-150 placeholder:text-textFaint focus-visible:ring-2 focus-visible:ring-accent"
+            className="w-full rounded-pill border border-border bg-surface py-2 pl-4 pr-9 text-sm text-ink outline-none transition-colors duration-150 placeholder:text-textFaint focus-visible:ring-2 focus-visible:ring-accent"
           />
+          {(query || appliedQuery) && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              aria-label="Clear search"
+              className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-textMuted transition-colors duration-150 hover:bg-chip hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              ✕
+            </button>
+          )}
         </form>
       </div>
       <div className="shrink-0">
-        <CategoryChips active={activeCategory} onChange={setActiveCategory} />
+        <CategoryChips active={activeCategory} onChange={selectCategory} />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <ProductList products={visibleProducts} onSelect={setSelectedProduct} />
