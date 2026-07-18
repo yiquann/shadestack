@@ -6,6 +6,9 @@ import {
   toggleVisible,
   moveLayer,
   clearLook,
+  emptyLooks,
+  withSplitEntered,
+  migrateStoredSession,
 } from "./session";
 import type { CatalogProduct } from "@/lib/catalog/types";
 
@@ -120,5 +123,42 @@ describe("moveLayer", () => {
 describe("clearLook", () => {
   it("returns an empty array", () => {
     expect(clearLook()).toEqual([]);
+  });
+});
+
+function fakeLayer(category: CatalogProduct["category"]) {
+  return { category, product: { category } as CatalogProduct, opacity: 1, visible: true };
+}
+
+describe("two-look model", () => {
+  it("emptyLooks starts both looks empty", () => {
+    expect(emptyLooks()).toEqual({ A: [], B: [] });
+  });
+
+  it("withSplitEntered copies A into B when B is empty (deep copy)", () => {
+    const a = [fakeLayer("LIPSTICK")];
+    const next = withSplitEntered({ A: a, B: [] });
+    expect(next.B).toEqual(a);
+    expect(next.B[0]).not.toBe(a[0]); // copied, not aliased
+  });
+
+  it("withSplitEntered leaves B untouched when it already has layers", () => {
+    const looks = { A: [fakeLayer("BLUSH")], B: [fakeLayer("LIPSTICK")] };
+    expect(withSplitEntered(looks)).toBe(looks);
+  });
+
+  it("migrateStoredSession upgrades a v1 bare-array payload into looks.A/single", () => {
+    const v1 = [fakeLayer("FOUNDATION")];
+    expect(migrateStoredSession(v1)).toEqual({ looks: { A: v1, B: [] }, mode: "single" });
+  });
+
+  it("migrateStoredSession passes through a v2 payload", () => {
+    const v2 = { looks: { A: [], B: [fakeLayer("BLUSH")] }, mode: "split" as const };
+    expect(migrateStoredSession(v2)).toEqual(v2);
+  });
+
+  it("migrateStoredSession falls back to empty on garbage", () => {
+    expect(migrateStoredSession(null)).toEqual({ looks: { A: [], B: [] }, mode: "single" });
+    expect(migrateStoredSession({ nope: 1 })).toEqual({ looks: { A: [], B: [] }, mode: "single" });
   });
 });

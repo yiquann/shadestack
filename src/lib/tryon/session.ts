@@ -71,3 +71,40 @@ export function moveLayer(
 export function clearLook(): AppliedLayer[] {
   return [];
 }
+
+export type LookId = "A" | "B";
+export type Looks = Record<LookId, AppliedLayer[]>;
+export type ViewMode = "single" | "split";
+export type StoredSession = { looks: Looks; mode: ViewMode };
+
+export function emptyLooks(): Looks {
+  return { A: [], B: [] };
+}
+
+/** Entering split seeds Look B from Look A (deep copy) when B is empty. */
+export function withSplitEntered(looks: Looks): Looks {
+  if (looks.B.length > 0) return looks;
+  return { A: looks.A, B: looks.A.map((l) => ({ ...l })) };
+}
+
+function isLayerArray(v: unknown): v is AppliedLayer[] {
+  return Array.isArray(v) && v.every((l) => l && typeof l === "object" && "category" in l);
+}
+
+/** Normalize a stored payload: v2 `{looks,mode}`, v1 bare `AppliedLayer[]`, or garbage. */
+export function migrateStoredSession(parsed: unknown): StoredSession {
+  if (isLayerArray(parsed)) {
+    return { looks: { A: parsed, B: [] }, mode: "single" };
+  }
+  if (
+    parsed &&
+    typeof parsed === "object" &&
+    "looks" in parsed &&
+    isLayerArray((parsed as StoredSession).looks?.A) &&
+    isLayerArray((parsed as StoredSession).looks?.B)
+  ) {
+    const p = parsed as StoredSession;
+    return { looks: { A: p.looks.A, B: p.looks.B }, mode: p.mode === "split" ? "split" : "single" };
+  }
+  return { looks: emptyLooks(), mode: "single" };
+}
