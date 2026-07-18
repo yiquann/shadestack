@@ -28,6 +28,23 @@ side, both looks are editable, and clearing a look first offers to save it.
   (Save A / B / Both), then clears. Saving persists to a **minimal localStorage saved-looks store**
   now (Phase 9's Saved tab will later read/display it).
 
+## Phasing (7.1 / 7.2)
+
+This design is delivered in two sub-phases, built in order:
+
+- **7.1 — Split view.** The two-look state model (`looks.{A,B}` + `mode` + look-targeted actions +
+  v1→v2 migration), the `regionClip` render primitive, the tilting-midline half-plane mask +
+  `midline` endpoints, split render integration in the sources/camera loop, and the split UI
+  (Single↔Split toggle, Swap sides, divider toggle, legend, +Look A/+Look B add buttons, two-look
+  side-by-side Active Layers). In 7.1, **Clear Look** stays simple — clears Look A in single mode and
+  clears both looks in split mode (no dialog yet).
+- **7.2 — Before/after wipe + save-on-clear.** The `buildWipeMask` rectangle region (reusing 7.1's
+  `regionClip`), the draggable `BeforeAfterWipe` handle + wipe toggle in single mode, the
+  `savedLooks` localStorage store, and the `ConfirmDialog` that turns Clear Look into a
+  save-first / A·B·Both confirmation.
+
+Files below are annotated with their sub-phase where it isn't obvious.
+
 ## Architecture
 
 ```
