@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { FaceLandmarker } from "@mediapipe/tasks-vision";
+import type { FaceLandmarker, ImageSegmenter } from "@mediapipe/tasks-vision";
 import { createVideoFaceLandmarker } from "@/lib/facemesh/faceLandmarker";
 import {
   nextFacingMode,
@@ -11,6 +11,8 @@ import {
 import { useCameraStream } from "@/lib/facemesh/useCameraStream";
 import { createCompositeRenderer } from "@/lib/webgl/compositor";
 import { buildGlLayers } from "@/lib/webgl/glLayers";
+import { createVideoSegmenter } from "@/lib/segment/imageSegmenter";
+import { buildSkinMask } from "@/lib/segment/skinMask";
 import type { Point } from "@/lib/facemesh/polygon";
 import type { AppliedLayer } from "@/lib/tryon/session";
 
@@ -23,6 +25,9 @@ const HEIGHT = 600;
 // canvas, so an unbounded size also hardens the feather. Bounding here fixes
 // both. Aspect ratio is preserved, so object-cover still matches the <video>.
 const MAX_RENDER_EDGE = 900;
+// Segmentation is a second per-frame model; run it every Nth frame and reuse
+// the last skin mask between runs to protect the frame budget.
+const SEGMENT_INTERVAL = 4;
 const SHOW_FPS = process.env.NODE_ENV !== "production";
 
 type Props = {
@@ -58,6 +63,9 @@ export function CameraSource({ layers }: Props) {
 
     let cancelled = false;
     let landmarker: FaceLandmarker | null = null;
+    let segmenter: ImageSegmenter | null = null;
+    let skinReady = false;
+    const skinCanvas = document.createElement("canvas");
     let rafId = 0;
     let vfcId = 0;
     let frameCount = 0;
@@ -111,8 +119,26 @@ export function CameraSource({ layers }: Props) {
           const face = result.faceLandmarks[0];
           lastPoints = face && face.length > 0 ? face.map((p) => ({ x: p.x, y: p.y })) : null;
         }
+        if (segmenter && frameCount % SEGMENT_INTERVAL === 0) {
+          segmenter.segmentForVideo(video, now, (result) => {
+            const mask = result.categoryMask;
+            if (!mask) return;
+            try {
+              buildSkinMask(skinCanvas, mask.getAsUint8Array(), mask.width, mask.height);
+              skinReady = true;
+            } finally {
+              mask.close();
+            }
+          });
+        }
         const glLayers = lastPoints
-          ? buildGlLayers(layersRef.current, lastPoints, canvas.width, canvas.height)
+          ? buildGlLayers(
+              layersRef.current,
+              lastPoints,
+              canvas.width,
+              canvas.height,
+              skinReady ? skinCanvas : undefined
+            )
           : [];
         renderer.render(video, glLayers);
       }
@@ -137,6 +163,18 @@ export function CameraSource({ layers }: Props) {
       schedule(tick);
     });
 
+    createVideoSegmenter()
+      .then((sg) => {
+        if (cancelled) {
+          sg.close();
+          return;
+        }
+        segmenter = sg;
+      })
+      .catch(() => {
+        // Segmentation unavailable -> foundation falls back to the extended oval.
+      });
+
     return () => {
       cancelled = true;
       if (useVfc && "cancelVideoFrameCallback" in video) {
@@ -148,6 +186,7 @@ export function CameraSource({ layers }: Props) {
       }
       renderer.dispose();
       landmarker?.close();
+      segmenter?.close();
     };
   }, [status]);
 

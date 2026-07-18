@@ -12,9 +12,10 @@ type Props = {
   width: number;
   height: number;
   layers: AppliedLayer[];
+  clipMask?: CanvasImageSource;
 };
 
-export function RenderCanvas({ image, points, width, height, layers }: Props) {
+export function RenderCanvas({ image, points, width, height, layers, clipMask }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<CompositeRenderer | null>(null);
 
@@ -30,8 +31,8 @@ export function RenderCanvas({ image, points, width, height, layers }: Props) {
   }, []);
 
   useEffect(() => {
-    rendererRef.current?.render(image, buildGlLayers(layers, points, width, height));
-  }, [image, points, width, height, layers]);
+    rendererRef.current?.render(image, buildGlLayers(layers, points, width, height, clipMask));
+  }, [image, points, width, height, layers, clipMask]);
 
   return (
     <canvas

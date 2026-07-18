@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useFaceLandmarks } from "@/lib/facemesh/useFaceLandmarks";
 import { RenderCanvas } from "./RenderCanvas";
+import { getImageSegmenter } from "@/lib/segment/imageSegmenter";
+import { buildSkinMask } from "@/lib/segment/skinMask";
 import type { AppliedLayer } from "@/lib/tryon/session";
 
 const MAX_WIDTH = 900;
@@ -82,6 +84,33 @@ function PhotoPreview({ url, layers }: { url: string; layers: AppliedLayer[] }) 
   const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null);
   const [size, setSize] = useState({ width: MAX_WIDTH, height: MAX_HEIGHT });
   const state = useFaceLandmarks(imageRef, imageLoaded);
+  const [skinMask, setSkinMask] = useState<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    if (!imageLoaded || !imageEl) return;
+    let cancelled = false;
+    getImageSegmenter()
+      .then((segmenter) => {
+        if (cancelled) return;
+        segmenter.segment(imageEl, (result) => {
+          const mask = result.categoryMask;
+          if (!mask) return;
+          try {
+            const canvas = document.createElement("canvas");
+            buildSkinMask(canvas, mask.getAsUint8Array(), mask.width, mask.height);
+            if (!cancelled) setSkinMask(canvas);
+          } finally {
+            mask.close();
+          }
+        });
+      })
+      .catch(() => {
+        // Segmentation unavailable -> foundation falls back to the extended oval.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [imageLoaded, imageEl]);
 
   function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
     const img = e.currentTarget;
@@ -115,6 +144,7 @@ function PhotoPreview({ url, layers }: { url: string; layers: AppliedLayer[] }) 
             width={size.width}
             height={size.height}
             layers={layers}
+            clipMask={skinMask ?? undefined}
           />
         )}
       </div>
