@@ -28,6 +28,19 @@ export function buildGlLayers(
         smoothStrength = COVERAGE_SMOOTHING.light.blur;
       }
 
+      // A full-face foundation blur must skip the eyes and lips, or those
+      // features soften and the whole face reads as a resolution drop. Smaller
+      // product zones (blush/bronzer cheek + temple patches) contain no
+      // features, so they need no holes.
+      const smoothHoles: Point[][] | undefined =
+        config.smooth === "coverage"
+          ? [
+              landmarksToPolygon(points, ZONE_LANDMARKS.leftEye, width, height),
+              landmarksToPolygon(points, ZONE_LANDMARKS.rightEye, width, height),
+              landmarksToPolygon(points, ZONE_LANDMARKS.lips, width, height),
+            ]
+          : undefined;
+
       return config.entries.flatMap(({ zone, featherPx }): Layer[] => {
         const polygon = landmarksToPolygon(points, ZONE_LANDMARKS[zone], width, height);
         const tint: Layer = {
@@ -39,7 +52,13 @@ export function buildGlLayers(
           featherPx,
         };
         if (smoothStrength > 0) {
-          const smooth: Layer = { kind: "smooth", polygon, strength: smoothStrength, featherPx };
+          const smooth: Layer = {
+            kind: "smooth",
+            polygon,
+            strength: smoothStrength,
+            featherPx,
+            holes: smoothHoles,
+          };
           return [smooth, tint];
         }
         return [tint];

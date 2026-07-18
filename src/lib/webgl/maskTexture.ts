@@ -1,16 +1,30 @@
 import type { Point } from "@/lib/facemesh/polygon";
 
+function tracePath(ctx: CanvasRenderingContext2D, polygon: Point[]): void {
+  ctx.beginPath();
+  polygon.forEach((p, i) => {
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  });
+  ctx.closePath();
+}
+
 /**
  * Rasterize a feathered white polygon mask into `canvas`, reusing the same
  * canvas across calls. Resizing the canvas clears it; when the size is
  * unchanged we clear explicitly so a stale mask never bleeds through.
+ *
+ * `holes` are punched out of the filled mask (destination-out) under the same
+ * blur, so their edges are feathered too — used to keep facial features (eyes,
+ * lips) out of the foundation skin-smoothing region.
  */
 export function drawMask(
   canvas: HTMLCanvasElement,
   polygon: Point[],
   width: number,
   height: number,
-  featherPx: number
+  featherPx: number,
+  holes?: Point[][]
 ): void {
   if (canvas.width !== width) canvas.width = width;
   if (canvas.height !== height) canvas.height = height;
@@ -19,12 +33,16 @@ export function drawMask(
 
   ctx.clearRect(0, 0, width, height);
   ctx.filter = `blur(${featherPx}px)`;
-  ctx.beginPath();
-  polygon.forEach((p, i) => {
-    if (i === 0) ctx.moveTo(p.x, p.y);
-    else ctx.lineTo(p.x, p.y);
-  });
-  ctx.closePath();
   ctx.fillStyle = "white";
+  tracePath(ctx, polygon);
   ctx.fill();
+
+  if (holes && holes.length > 0) {
+    ctx.globalCompositeOperation = "destination-out";
+    for (const hole of holes) {
+      tracePath(ctx, hole);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = "source-over";
+  }
 }

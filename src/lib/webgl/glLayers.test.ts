@@ -63,6 +63,8 @@ describe("buildGlLayers", () => {
     expect(tint.kind).toBe("tint");
     if (tint.kind !== "tint") throw new Error("expected tint layer");
     expect(tint.opacity).toBeCloseTo(COVERAGE_SMOOTHING.full.tint * 0.8);
+    // Foundation smoothing punches eye + lip holes so features stay sharp.
+    expect(smooth.holes).toHaveLength(3);
   });
 
   it("falls back to medium coverage for an unknown coverage string", () => {
@@ -91,6 +93,8 @@ describe("buildGlLayers", () => {
       if (smooth.kind !== "smooth" || tint.kind !== "tint") throw new Error("unexpected kinds");
       expect(smooth.strength).toBe(COVERAGE_SMOOTHING.light.blur);
       expect(tint.opacity).toBeCloseTo(CATEGORY_RENDER.BLUSH.baseOpacity * 0.6);
+      // Blush zones contain no features, so they punch no holes.
+      expect(smooth.holes).toBeUndefined();
     }
   });
 });

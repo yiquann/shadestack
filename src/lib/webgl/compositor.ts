@@ -24,6 +24,10 @@ export type SmoothLayer = {
   polygon: Point[];
   strength: number;
   featherPx: number;
+  // Regions to exclude from smoothing (e.g. eyes/lips for a full-face
+  // foundation blur) so facial features stay sharp instead of reading as a
+  // resolution drop. Punched out of the mask under the same feather.
+  holes?: Point[][];
 };
 
 export type Layer = TintLayer | SmoothLayer;
@@ -156,7 +160,14 @@ export function createCompositeRenderer(canvas: HTMLCanvasElement): CompositeRen
     gl.enable(gl.BLEND);
     layers.forEach((layer, i) => {
       const maskTexture = maskTextureAt(i);
-      drawMask(maskScratch, layer.polygon, width, height, layer.featherPx);
+      drawMask(
+        maskScratch,
+        layer.polygon,
+        width,
+        height,
+        layer.featherPx,
+        layer.kind === "smooth" ? layer.holes : undefined
+      );
 
       if (layer.kind === "smooth") {
         gl.useProgram(smoothProgram);
