@@ -2,19 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useFaceLandmarks } from "@/lib/facemesh/useFaceLandmarks";
-import { RenderCanvas } from "./RenderCanvas";
+import { RenderCanvas, type RenderLooks } from "./RenderCanvas";
 import { getImageSegmenter } from "@/lib/segment/imageSegmenter";
 import { buildSkinMask } from "@/lib/segment/skinMask";
-import type { AppliedLayer } from "@/lib/tryon/session";
 
 const MAX_WIDTH = 900;
 const MAX_HEIGHT = 1080;
 
 type Props = {
-  layers: AppliedLayer[];
+  looks: RenderLooks;
 };
 
-export function PhotoSource({ layers }: Props) {
+export function PhotoSource({ looks }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [url, setUrl] = useState<string | null>(null);
 
@@ -39,7 +38,7 @@ export function PhotoSource({ layers }: Props) {
       {url ? (
         // Keyed by url so a new photo remounts the detection hook fresh,
         // rather than showing the previous photo's stale landmark result.
-        <PhotoPreview key={url} url={url} layers={layers} />
+        <PhotoPreview key={url} url={url} looks={looks} />
       ) : (
         <div className="flex flex-col items-center gap-4 rounded-card border border-border bg-surface px-6 py-10 text-center">
           <p className="max-w-xs text-xs text-textMuted">
@@ -78,7 +77,7 @@ export function PhotoSource({ layers }: Props) {
   );
 }
 
-function PhotoPreview({ url, layers }: { url: string; layers: AppliedLayer[] }) {
+function PhotoPreview({ url, looks }: { url: string; looks: RenderLooks }) {
   const imageRef = useRef<HTMLImageElement>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null);
@@ -143,7 +142,7 @@ function PhotoPreview({ url, layers }: { url: string; layers: AppliedLayer[] }) 
             points={state.points}
             width={size.width}
             height={size.height}
-            layers={layers}
+            looks={looks}
             clipMask={skinMask ?? undefined}
           />
         )}

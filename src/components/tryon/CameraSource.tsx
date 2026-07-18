@@ -5,12 +5,14 @@ import type { FaceLandmarker, ImageSegmenter } from "@mediapipe/tasks-vision";
 import { createVideoFaceLandmarker } from "@/lib/facemesh/faceLandmarker";
 import { detectionInterval, type FacingMode } from "@/lib/facemesh/cameraHelpers";
 import { useCameraStream } from "@/lib/facemesh/useCameraStream";
-import { createCompositeRenderer } from "@/lib/webgl/compositor";
+import { createCompositeRenderer, type Layer } from "@/lib/webgl/compositor";
 import { buildGlLayers } from "@/lib/webgl/glLayers";
 import { createVideoSegmenter } from "@/lib/segment/imageSegmenter";
 import { buildSkinMask } from "@/lib/segment/skinMask";
+import { midlineEndpoints } from "@/lib/facemesh/midline";
+import { buildHalfMask } from "@/lib/webgl/regionMask";
 import type { Point } from "@/lib/facemesh/polygon";
-import type { AppliedLayer } from "@/lib/tryon/session";
+import type { RenderLooks } from "./RenderCanvas";
 
 const WIDTH = 500;
 const HEIGHT = 600;
@@ -27,21 +29,22 @@ const SEGMENT_INTERVAL = 4;
 const SHOW_FPS = process.env.NODE_ENV !== "production";
 
 type Props = {
-  layers: AppliedLayer[];
+  looks: RenderLooks;
   facingMode: FacingMode;
 };
 
-export function CameraSource({ layers, facingMode }: Props) {
+export function CameraSource({ looks, facingMode }: Props) {
   const { stream, status, message } = useCameraStream(facingMode);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const layersRef = useRef(layers);
+  const dividerRef = useRef<HTMLCanvasElement>(null);
+  const looksRef = useRef(looks);
   const [fps, setFps] = useState(0);
 
-  // Keep the loop reading current layers without restarting on each edit.
+  // Keep the loop reading current looks without restarting on each edit.
   useEffect(() => {
-    layersRef.current = layers;
-  }, [layers]);
+    looksRef.current = looks;
+  }, [looks]);
 
   // Attach the stream to the <video>.
   useEffect(() => {
@@ -72,6 +75,9 @@ export function CameraSource({ layers, facingMode }: Props) {
     let fpsFrames = 0;
 
     const renderer = createCompositeRenderer(canvas);
+    const leftMask = document.createElement("canvas");
+    const rightMask = document.createElement("canvas");
+    const divider = dividerRef.current;
 
     const useVfc = typeof (video as HTMLVideoElement & {
       requestVideoFrameCallback?: unknown;
@@ -127,16 +133,41 @@ export function CameraSource({ layers, facingMode }: Props) {
             }
           });
         }
-        const glLayers = lastPoints
-          ? buildGlLayers(
-              layersRef.current,
-              lastPoints,
-              canvas.width,
-              canvas.height,
-              skinReady ? skinCanvas : undefined
-            )
-          : [];
+        const rl = looksRef.current;
+        const clip = skinReady ? skinCanvas : undefined;
+        let glLayers: Layer[] = [];
+        if (lastPoints) {
+          if (rl.mode === "single") {
+            glLayers = buildGlLayers(rl.layers, lastPoints, canvas.width, canvas.height, clip);
+          } else {
+            const { top, bottom } = midlineEndpoints(lastPoints, canvas.width, canvas.height);
+            buildHalfMask(leftMask, top, bottom, "left", canvas.width, canvas.height);
+            buildHalfMask(rightMask, top, bottom, "right", canvas.width, canvas.height);
+            glLayers = [
+              ...buildGlLayers(rl.left, lastPoints, canvas.width, canvas.height, clip, leftMask),
+              ...buildGlLayers(rl.right, lastPoints, canvas.width, canvas.height, clip, rightMask),
+            ];
+          }
+        }
         renderer.render(video, glLayers);
+
+        if (divider) {
+          if (divider.width !== canvas.width) divider.width = canvas.width;
+          if (divider.height !== canvas.height) divider.height = canvas.height;
+          const dctx = divider.getContext("2d");
+          if (dctx) {
+            dctx.clearRect(0, 0, divider.width, divider.height);
+            if (rl.mode === "split" && rl.divider && lastPoints) {
+              const { top, bottom } = midlineEndpoints(lastPoints, canvas.width, canvas.height);
+              dctx.strokeStyle = "rgba(255,255,255,0.85)";
+              dctx.lineWidth = 2;
+              dctx.beginPath();
+              dctx.moveTo(top.x, top.y);
+              dctx.lineTo(bottom.x, bottom.y);
+              dctx.stroke();
+            }
+          }
+        }
       }
 
       frameCount += 1;
@@ -202,6 +233,11 @@ export function CameraSource({ layers, facingMode }: Props) {
           width={WIDTH}
           height={HEIGHT}
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          style={{ transform: "scaleX(-1)" }}
+        />
+        <canvas
+          ref={dividerRef}
+          className="pointer-events-none absolute inset-0 h-full w-full"
           style={{ transform: "scaleX(-1)" }}
         />
         {SHOW_FPS && status === "ready" && (

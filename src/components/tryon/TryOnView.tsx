@@ -7,6 +7,7 @@ import { ModeSourcePicker, type SourceMode } from "./ModeSourcePicker";
 import { FaceMeshTracker } from "./FaceMeshTracker";
 import { PhotoSource } from "./PhotoSource";
 import { CameraSource } from "./CameraSource";
+import type { RenderLooks } from "./RenderCanvas";
 import { LayerPanel } from "@/components/layers/LayerPanel";
 import { ProductSearchBar } from "./ProductSearchBar";
 import { nextFacingMode, type FacingMode } from "@/lib/facemesh/cameraHelpers";
@@ -18,6 +19,7 @@ type Props = {
 export function TryOnView({ products }: Props) {
   const { looks, clearLook } = useTryOnSession();
   const layers = looks.A;
+  const renderLooks: RenderLooks = { mode: "single", layers: looks.A };
   const [mode, setMode] = useState<SourceMode>("model");
   const [facingMode, setFacingMode] = useState<FacingMode>("user");
 
@@ -36,9 +38,9 @@ export function TryOnView({ products }: Props) {
         {/* Left: face preview + controls */}
         <div className="flex min-h-0 flex-col items-center gap-3 md:w-[45%]">
           <div className="w-full shrink-0">
-            {mode === "model" && <FaceMeshTracker layers={layers} />}
-            {mode === "photo" && <PhotoSource layers={layers} />}
-            {mode === "camera" && <CameraSource layers={layers} facingMode={facingMode} />}
+            {mode === "model" && <FaceMeshTracker looks={renderLooks} />}
+            {mode === "photo" && <PhotoSource looks={renderLooks} />}
+            {mode === "camera" && <CameraSource looks={renderLooks} facingMode={facingMode} />}
           </div>
 
           <div className="flex shrink-0 items-center justify-center gap-2">
