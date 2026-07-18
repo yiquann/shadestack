@@ -23,11 +23,13 @@ describe("CATEGORY_RENDER", () => {
       entries: [{ zone: "faceOval", featherPx: 8 }],
       blendMode: "multiply",
       baseOpacity: 0.18,
+      smooth: "coverage",
     });
     expect(CATEGORY_RENDER.SETTING_POWDER).toEqual({
       entries: [{ zone: "faceOval", featherPx: 8 }],
       blendMode: "multiply",
       baseOpacity: 0.06,
+      smooth: "none",
     });
     expect(CATEGORY_RENDER.BRONZER).toEqual({
       entries: [
@@ -38,6 +40,7 @@ describe("CATEGORY_RENDER", () => {
       ],
       blendMode: "multiply",
       baseOpacity: 0.18,
+      smooth: "light",
     });
     expect(CATEGORY_RENDER.BLUSH).toEqual({
       entries: [
@@ -46,6 +49,7 @@ describe("CATEGORY_RENDER", () => {
       ],
       blendMode: "multiply",
       baseOpacity: 0.32,
+      smooth: "light",
     });
     expect(CATEGORY_RENDER.HIGHLIGHTER).toEqual({
       entries: [
@@ -54,6 +58,7 @@ describe("CATEGORY_RENDER", () => {
       ],
       blendMode: "screen",
       baseOpacity: 0.25,
+      smooth: "none",
     });
     expect(CATEGORY_RENDER.EYESHADOW).toEqual({
       entries: [
@@ -62,11 +67,13 @@ describe("CATEGORY_RENDER", () => {
       ],
       blendMode: "multiply",
       baseOpacity: 0.32,
+      smooth: "none",
     });
     expect(CATEGORY_RENDER.LIPSTICK).toEqual({
       entries: [{ zone: "lips", featherPx: 2 }],
       blendMode: "multiply",
       baseOpacity: 0.55,
+      smooth: "none",
     });
   });
 });

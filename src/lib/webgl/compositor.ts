@@ -3,19 +3,30 @@ import {
   BASE_VERTEX_SHADER,
   IMAGE_FRAGMENT_SHADER,
   TINT_FRAGMENT_SHADER,
+  SMOOTH_FRAGMENT_SHADER,
   createProgram,
 } from "./shaders";
 import { drawMask } from "./maskTexture";
 
 export type BlendMode = "multiply" | "screen";
 
-export type Layer = {
+export type TintLayer = {
+  kind: "tint";
   polygon: Point[];
   tintColor: [number, number, number];
   opacity: number;
   blendMode: BlendMode;
   featherPx: number;
 };
+
+export type SmoothLayer = {
+  kind: "smooth";
+  polygon: Point[];
+  strength: number;
+  featherPx: number;
+};
+
+export type Layer = TintLayer | SmoothLayer;
 
 export type CompositeRenderer = {
   render(source: TexImageSource, layers: Layer[]): void;
@@ -35,6 +46,8 @@ const QUAD_VERTICES = new Float32Array([
   -1, 1, 0, 0,
   1, 1, 1, 0,
 ]);
+
+const SMOOTH_RADIUS = 4.0;
 
 function configureTexture(gl: WebGLRenderingContext, tex: WebGLTexture): void {
   gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -65,6 +78,7 @@ export function createCompositeRenderer(canvas: HTMLCanvasElement): CompositeRen
 
   const imageProgram = createProgram(gl, BASE_VERTEX_SHADER, IMAGE_FRAGMENT_SHADER);
   const tintProgram = createProgram(gl, BASE_VERTEX_SHADER, TINT_FRAGMENT_SHADER);
+  const smoothProgram = createProgram(gl, BASE_VERTEX_SHADER, SMOOTH_FRAGMENT_SHADER);
 
   const quadBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
@@ -88,6 +102,15 @@ export function createCompositeRenderer(canvas: HTMLCanvasElement): CompositeRen
     uMask: gl.getUniformLocation(tintProgram, "uMask"),
     uTintColor: gl.getUniformLocation(tintProgram, "uTintColor"),
     uOpacity: gl.getUniformLocation(tintProgram, "uOpacity"),
+  };
+  const smoothLoc = {
+    position: gl.getAttribLocation(smoothProgram, "aPosition"),
+    texCoord: gl.getAttribLocation(smoothProgram, "aTexCoord"),
+    uImage: gl.getUniformLocation(smoothProgram, "uImage"),
+    uMask: gl.getUniformLocation(smoothProgram, "uMask"),
+    uStrength: gl.getUniformLocation(smoothProgram, "uStrength"),
+    uTexel: gl.getUniformLocation(smoothProgram, "uTexel"),
+    uRadius: gl.getUniformLocation(smoothProgram, "uRadius"),
   };
 
   function bindQuad(position: number, texCoord: number): void {
@@ -126,22 +149,43 @@ export function createCompositeRenderer(canvas: HTMLCanvasElement): CompositeRen
     gl.uniform1i(imageLoc.uImage, 0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-    // Tint passes. Premultiplied source (see TINT_FRAGMENT_SHADER):
+    // Layer passes. Premultiplied source in both the tint and smooth shaders:
     //   multiply -> (DST_COLOR, ONE_MINUS_SRC_ALPHA); screen -> (ONE, ONE_MINUS_SRC_COLOR)
+    //   smooth (skin blur "over") -> (ONE, ONE_MINUS_SRC_ALPHA)
     //   alpha factors (ZERO, ONE) preserve the opaque base alpha.
     gl.enable(gl.BLEND);
-    gl.useProgram(tintProgram);
-    bindQuad(tintLoc.position, tintLoc.texCoord);
     layers.forEach((layer, i) => {
+      const maskTexture = maskTextureAt(i);
+      drawMask(maskScratch, layer.polygon, width, height, layer.featherPx);
+
+      if (layer.kind === "smooth") {
+        gl.useProgram(smoothProgram);
+        bindQuad(smoothLoc.position, smoothLoc.texCoord);
+        gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, imageTexture);
+        gl.uniform1i(smoothLoc.uImage, 0);
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, maskTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, maskScratch);
+        gl.uniform1i(smoothLoc.uMask, 1);
+        gl.uniform1f(smoothLoc.uStrength, layer.strength);
+        gl.uniform2f(smoothLoc.uTexel, 1 / width, 1 / height);
+        gl.uniform1f(smoothLoc.uRadius, SMOOTH_RADIUS);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        return;
+      }
+
+      // kind === "tint": the existing tint draw, unchanged.
+      gl.useProgram(tintProgram);
+      bindQuad(tintLoc.position, tintLoc.texCoord);
       if (layer.blendMode === "multiply") {
         gl.blendFuncSeparate(gl.DST_COLOR, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
       } else {
         gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_COLOR, gl.ZERO, gl.ONE);
       }
-      const tex = maskTextureAt(i);
-      drawMask(maskScratch, layer.polygon, width, height, layer.featherPx);
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.bindTexture(gl.TEXTURE_2D, maskTexture);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, maskScratch);
       gl.uniform1i(tintLoc.uMask, 0);
       gl.uniform3fv(tintLoc.uTintColor, layer.tintColor);
@@ -156,6 +200,7 @@ export function createCompositeRenderer(canvas: HTMLCanvasElement): CompositeRen
     gl.deleteBuffer(quadBuffer);
     gl.deleteProgram(imageProgram);
     gl.deleteProgram(tintProgram);
+    gl.deleteProgram(smoothProgram);
   }
 
   return { render, dispose };

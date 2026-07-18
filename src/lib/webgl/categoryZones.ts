@@ -8,18 +8,34 @@ export type CategoryRenderConfig = {
   entries: CategoryZoneEntry[];
   blendMode: BlendMode;
   baseOpacity: number;
+  smooth: "coverage" | "light" | "none";
 };
+
+// Foundation coverage -> { skin-blur strength, tint opacity }. Blush/bronzer use
+// the "light" blur strength only (their pigment stays their own baseOpacity).
+export const COVERAGE_SMOOTHING: Record<string, { blur: number; tint: number }> = {
+  light: { blur: 0.15, tint: 0.15 },
+  medium: { blur: 0.3, tint: 0.18 },
+  buildable: { blur: 0.35, tint: 0.2 },
+  full: { blur: 0.5, tint: 0.22 },
+};
+
+export function normalizeCoverage(coverage: string): string {
+  return coverage.trim().toLowerCase();
+}
 
 export const CATEGORY_RENDER: Record<CatalogProduct["category"], CategoryRenderConfig> = {
   FOUNDATION: {
     entries: [{ zone: "faceOval", featherPx: 8 }],
     blendMode: "multiply",
     baseOpacity: 0.18,
+    smooth: "coverage",
   },
   SETTING_POWDER: {
     entries: [{ zone: "faceOval", featherPx: 8 }],
     blendMode: "multiply",
     baseOpacity: 0.06,
+    smooth: "none",
   },
   BRONZER: {
     entries: [
@@ -30,6 +46,7 @@ export const CATEGORY_RENDER: Record<CatalogProduct["category"], CategoryRenderC
     ],
     blendMode: "multiply",
     baseOpacity: 0.18,
+    smooth: "light",
   },
   BLUSH: {
     entries: [
@@ -38,6 +55,7 @@ export const CATEGORY_RENDER: Record<CatalogProduct["category"], CategoryRenderC
     ],
     blendMode: "multiply",
     baseOpacity: 0.32,
+    smooth: "light",
   },
   HIGHLIGHTER: {
     entries: [
@@ -46,6 +64,7 @@ export const CATEGORY_RENDER: Record<CatalogProduct["category"], CategoryRenderC
     ],
     blendMode: "screen",
     baseOpacity: 0.25,
+    smooth: "none",
   },
   EYESHADOW: {
     entries: [
@@ -54,10 +73,12 @@ export const CATEGORY_RENDER: Record<CatalogProduct["category"], CategoryRenderC
     ],
     blendMode: "multiply",
     baseOpacity: 0.32,
+    smooth: "none",
   },
   LIPSTICK: {
     entries: [{ zone: "lips", featherPx: 2 }],
     blendMode: "multiply",
     baseOpacity: 0.55,
+    smooth: "none",
   },
 };
