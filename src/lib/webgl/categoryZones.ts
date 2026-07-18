@@ -68,8 +68,8 @@ export const CATEGORY_RENDER: Record<CatalogProduct["category"], CategoryRenderC
   },
   EYESHADOW: {
     entries: [
-      { zone: "leftEye", featherPx: 3 },
-      { zone: "rightEye", featherPx: 3 },
+      { zone: "leftEye", featherPx: 9 },
+      { zone: "rightEye", featherPx: 9 },
     ],
     blendMode: "multiply",
     baseOpacity: 0.32,

@@ -62,8 +62,8 @@ describe("CATEGORY_RENDER", () => {
     });
     expect(CATEGORY_RENDER.EYESHADOW).toEqual({
       entries: [
-        { zone: "leftEye", featherPx: 3 },
-        { zone: "rightEye", featherPx: 3 },
+        { zone: "leftEye", featherPx: 9 },
+        { zone: "rightEye", featherPx: 9 },
       ],
       blendMode: "multiply",
       baseOpacity: 0.32,
