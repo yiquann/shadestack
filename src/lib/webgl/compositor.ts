@@ -53,7 +53,7 @@ const QUAD_VERTICES = new Float32Array([
 
 // Blur offset at a ~600px canvas; scaled with the actual canvas in render() so
 // the smoothing stays visually consistent as the render resolution changes.
-const SMOOTH_RADIUS = 4.0;
+const SMOOTH_RADIUS = 2.5;
 const SMOOTH_RADIUS_REFERENCE = 600;
 
 function configureTexture(gl: WebGLRenderingContext, tex: WebGLTexture): void {

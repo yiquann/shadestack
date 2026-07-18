@@ -11,7 +11,7 @@ import type { AppliedLayer } from "@/lib/tryon/session";
 // (landmark 168, between the eyes), the center rises most and the sides least,
 // keeping a smooth dome without widening the temples.
 const FOREHEAD_TOP = new Set([10, 338, 297, 332, 284, 109, 67, 103, 54]);
-const FOREHEAD_LIFT = 1.25;
+const FOREHEAD_LIFT = 1.55;
 const NASION = 168;
 
 function faceOvalPolygon(points: Point[], width: number, height: number): Point[] {

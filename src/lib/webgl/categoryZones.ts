@@ -14,10 +14,10 @@ export type CategoryRenderConfig = {
 // Foundation coverage -> { skin-blur strength, tint opacity }. Blush/bronzer use
 // the "light" blur strength only (their pigment stays their own baseOpacity).
 export const COVERAGE_SMOOTHING: Record<string, { blur: number; tint: number }> = {
-  light: { blur: 0.15, tint: 0.15 },
-  medium: { blur: 0.3, tint: 0.18 },
-  buildable: { blur: 0.35, tint: 0.2 },
-  full: { blur: 0.5, tint: 0.22 },
+  light: { blur: 0.12, tint: 0.15 },
+  medium: { blur: 0.22, tint: 0.18 },
+  buildable: { blur: 0.28, tint: 0.2 },
+  full: { blur: 0.4, tint: 0.22 },
 };
 
 export function normalizeCoverage(coverage: string): string {
