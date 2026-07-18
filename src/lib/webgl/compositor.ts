@@ -51,7 +51,10 @@ const QUAD_VERTICES = new Float32Array([
   1, 1, 1, 0,
 ]);
 
+// Blur offset at a ~600px canvas; scaled with the actual canvas in render() so
+// the smoothing stays visually consistent as the render resolution changes.
 const SMOOTH_RADIUS = 4.0;
+const SMOOTH_RADIUS_REFERENCE = 600;
 
 function configureTexture(gl: WebGLRenderingContext, tex: WebGLTexture): void {
   gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -182,7 +185,10 @@ export function createCompositeRenderer(canvas: HTMLCanvasElement): CompositeRen
         gl.uniform1i(smoothLoc.uMask, 1);
         gl.uniform1f(smoothLoc.uStrength, layer.strength);
         gl.uniform2f(smoothLoc.uTexel, 1 / width, 1 / height);
-        gl.uniform1f(smoothLoc.uRadius, SMOOTH_RADIUS);
+        gl.uniform1f(
+          smoothLoc.uRadius,
+          (SMOOTH_RADIUS * Math.max(width, height)) / SMOOTH_RADIUS_REFERENCE
+        );
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         return;
       }

@@ -22,7 +22,7 @@ const HEIGHT = 600;
 // budget; and the per-category featherPx values are tuned for a ~500–600px
 // canvas, so an unbounded size also hardens the feather. Bounding here fixes
 // both. Aspect ratio is preserved, so object-cover still matches the <video>.
-const MAX_RENDER_EDGE = 640;
+const MAX_RENDER_EDGE = 900;
 const SHOW_FPS = process.env.NODE_ENV !== "production";
 
 type Props = {

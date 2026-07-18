@@ -5,8 +5,8 @@ import { useFaceLandmarks } from "@/lib/facemesh/useFaceLandmarks";
 import { RenderCanvas } from "./RenderCanvas";
 import type { AppliedLayer } from "@/lib/tryon/session";
 
-const MAX_WIDTH = 500;
-const MAX_HEIGHT = 600;
+const MAX_WIDTH = 900;
+const MAX_HEIGHT = 1080;
 
 type Props = {
   layers: AppliedLayer[];
