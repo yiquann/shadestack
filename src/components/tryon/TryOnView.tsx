@@ -31,21 +31,10 @@ export function TryOnView({ products }: Props) {
         </div>
       </div>
 
-      <div className="mt-4 flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
-        {/* Left: Active Layers — its own full-height, scrollable column */}
-        <div className="flex min-h-0 flex-col rounded-card border border-border p-3 lg:w-1/4">
-          <h2 className="shrink-0 text-[11px] font-bold uppercase tracking-[0.8px] text-textMuted">
-            Active Layers
-          </h2>
-          <div className="mt-2 min-h-0 flex-1 overflow-y-auto">
-            <LayerPanel />
-          </div>
-        </div>
-
-        {/* Center: face preview + controls, kept centered like a mirror. On
-            narrow screens it moves to the top. */}
-        <div className="order-first flex min-h-0 flex-col items-center gap-3 lg:order-none lg:flex-1">
-          <div className="w-full shrink-0">
+      <div className="mt-4 flex min-h-0 flex-1 flex-col gap-4 md:flex-row">
+        {/* Left: face preview, controls, and the active-layers stack (2/3) */}
+        <div className="flex min-h-0 flex-col gap-3 md:w-2/3">
+          <div className="shrink-0">
             {mode === "model" && <FaceMeshTracker layers={layers} />}
             {mode === "photo" && <PhotoSource layers={layers} />}
             {mode === "camera" && <CameraSource layers={layers} facingMode={facingMode} />}
@@ -72,10 +61,14 @@ export function TryOnView({ products }: Props) {
               </button>
             )}
           </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-card border border-border p-3">
+            <LayerPanel />
+          </div>
         </div>
 
-        {/* Right: product catalog to add from */}
-        <div className="flex min-h-0 flex-col overflow-hidden rounded-card border border-border lg:w-1/4">
+        {/* Right: product catalog to add from (1/3) */}
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-card border border-border md:w-1/3">
           <AddProductsSection products={products} />
         </div>
       </div>

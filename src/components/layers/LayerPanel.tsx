@@ -19,26 +19,29 @@ export function LayerPanel() {
     );
   }
 
-  if (layers.length === 0) {
-    return (
-      <p data-testid="active-layers-empty" className="text-sm text-textMuted">
-        No products applied yet — add one to start your look.
-      </p>
-    );
-  }
-
   return (
-    <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext
-        items={topFirst.map((l) => l.category)}
-        strategy={verticalListSortingStrategy}
-      >
-        <div className="rounded-card border border-border">
-          {topFirst.map((layer) => (
-            <LayerRow key={layer.category} layer={layer} />
-          ))}
-        </div>
-      </SortableContext>
-    </DndContext>
+    <section>
+      <h2 className="text-[11px] font-bold uppercase tracking-[0.8px] text-textMuted">
+        Active Layers
+      </h2>
+      {layers.length === 0 ? (
+        <p data-testid="active-layers-empty" className="mt-3 text-sm text-textMuted">
+          No products applied yet — add one below to start your look.
+        </p>
+      ) : (
+        <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext
+            items={topFirst.map((l) => l.category)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="mt-2 rounded-card border border-border">
+              {topFirst.map((layer) => (
+                <LayerRow key={layer.category} layer={layer} />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+    </section>
   );
 }
