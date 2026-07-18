@@ -4,6 +4,36 @@ import { hexToRgb01, type Layer } from "./compositor";
 import { CATEGORY_RENDER, COVERAGE_SMOOTHING, normalizeCoverage } from "./categoryZones";
 import type { AppliedLayer } from "@/lib/tryon/session";
 
+// MediaPipe's mesh tops out at landmark 10 (mid-forehead) — there are no
+// hairline landmarks — so the raw face oval leaves the upper forehead bare.
+// These top-arc oval vertices are lifted toward the hairline; because the lift
+// is vertical-only and proportional to each point's distance above the nasion
+// (landmark 168, between the eyes), the center rises most and the sides least,
+// keeping a smooth dome without widening the temples.
+const FOREHEAD_TOP = new Set([10, 338, 297, 332, 284, 109, 67, 103, 54]);
+const FOREHEAD_LIFT = 1.25;
+const NASION = 168;
+
+function faceOvalPolygon(points: Point[], width: number, height: number): Point[] {
+  const anchorY = points[NASION].y * height;
+  return ZONE_LANDMARKS.faceOval.map((idx) => {
+    const x = points[idx].x * width;
+    const y = points[idx].y * height;
+    if (!FOREHEAD_TOP.has(idx)) return { x, y };
+    return { x, y: anchorY + (y - anchorY) * FOREHEAD_LIFT };
+  });
+}
+
+function zonePolygon(
+  zone: keyof typeof ZONE_LANDMARKS,
+  points: Point[],
+  width: number,
+  height: number
+): Point[] {
+  if (zone === "faceOval") return faceOvalPolygon(points, width, height);
+  return landmarksToPolygon(points, ZONE_LANDMARKS[zone], width, height);
+}
+
 export function buildGlLayers(
   layers: AppliedLayer[],
   points: Point[],
@@ -15,6 +45,10 @@ export function buildGlLayers(
     .flatMap((l) => {
       const config = CATEGORY_RENDER[l.category];
       const tintColor = hexToRgb01(l.product.colorHex);
+
+      // featherPx values are tuned against a ~600px canvas; scale them with the
+      // actual canvas so raising the render resolution doesn't harden the edges.
+      const featherScale = Math.max(width, height) / 600;
 
       let smoothStrength = 0;
       let tintOpacity = config.baseOpacity * l.opacity;
@@ -42,21 +76,22 @@ export function buildGlLayers(
           : undefined;
 
       return config.entries.flatMap(({ zone, featherPx }): Layer[] => {
-        const polygon = landmarksToPolygon(points, ZONE_LANDMARKS[zone], width, height);
+        const polygon = zonePolygon(zone, points, width, height);
+        const scaledFeather = featherPx * featherScale;
         const tint: Layer = {
           kind: "tint",
           polygon,
           tintColor,
           opacity: tintOpacity,
           blendMode: config.blendMode,
-          featherPx,
+          featherPx: scaledFeather,
         };
         if (smoothStrength > 0) {
           const smooth: Layer = {
             kind: "smooth",
             polygon,
             strength: smoothStrength,
-            featherPx,
+            featherPx: scaledFeather,
             holes: smoothHoles,
           };
           return [smooth, tint];
