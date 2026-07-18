@@ -12,9 +12,13 @@ export const ZONE_LANDMARKS = {
   // row (eyebrow's edge closest to the eye), both standard MediaPipe index
   // groups, ordered outer-corner -> inner-corner along the lash line then
   // inner -> outer back along the brow so the polygon traces a closed loop
-  // without self-intersecting.
-  leftEye: [246, 161, 160, 159, 158, 157, 173, 55, 65, 52, 53, 46],
-  rightEye: [466, 388, 387, 386, 385, 384, 398, 285, 295, 282, 283, 276],
+  // without self-intersecting. The lash line is anchored at the TRUE eye
+  // corners (33/263 outer, 133/362 inner) so the shadow's outer end lands on
+  // the eye corner rather than short of it — an earlier version started one
+  // point in from the outer corner, so the wing sat inboard of where the eye
+  // actually ends.
+  leftEye: [33, 246, 161, 160, 159, 158, 157, 173, 133, 55, 65, 52, 53, 46],
+  rightEye: [263, 466, 388, 387, 386, 385, 384, 398, 362, 285, 295, 282, 283, 276],
   faceOval: [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109],
   leftCheek: [50, 101, 118, 187, 205, 36],
   rightCheek: [280, 330, 347, 411, 425, 266],
