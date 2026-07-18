@@ -9,7 +9,6 @@ import { createCompositeRenderer, type Layer } from "@/lib/webgl/compositor";
 import { buildGlLayers } from "@/lib/webgl/glLayers";
 import { createVideoSegmenter } from "@/lib/segment/imageSegmenter";
 import { buildSkinMask } from "@/lib/segment/skinMask";
-import { midlineEndpoints, fullSpanMidline } from "@/lib/facemesh/midline";
 import { buildHalfMask } from "@/lib/webgl/regionMask";
 import type { Point } from "@/lib/facemesh/polygon";
 import type { RenderLooks } from "./RenderCanvas";
@@ -140,7 +139,11 @@ export function CameraSource({ looks, facingMode }: Props) {
           if (rl.mode === "single") {
             glLayers = buildGlLayers(rl.layers, lastPoints, canvas.width, canvas.height, clip);
           } else {
-            const { top, bottom } = midlineEndpoints(lastPoints, canvas.width, canvas.height);
+            // The camera split is a fixed vertical line down the middle of the
+            // frame — it does not tilt or follow the face (unlike photo/model).
+            const cx = canvas.width / 2;
+            const top = { x: cx, y: 0 };
+            const bottom = { x: cx, y: canvas.height };
             buildHalfMask(leftMask, top, bottom, "left", canvas.width, canvas.height);
             buildHalfMask(rightMask, top, bottom, "right", canvas.width, canvas.height);
             glLayers = [
@@ -157,14 +160,13 @@ export function CameraSource({ looks, facingMode }: Props) {
           const dctx = divider.getContext("2d");
           if (dctx) {
             dctx.clearRect(0, 0, divider.width, divider.height);
-            if (rl.mode === "split" && rl.divider && lastPoints) {
-              const { top, bottom } = midlineEndpoints(lastPoints, canvas.width, canvas.height);
-              const { start, end } = fullSpanMidline(top, bottom, canvas.width, canvas.height);
+            if (rl.mode === "split" && rl.divider) {
+              const cx = divider.width / 2;
               dctx.strokeStyle = "rgba(255,255,255,0.9)";
               dctx.lineWidth = 4;
               dctx.beginPath();
-              dctx.moveTo(start.x, start.y);
-              dctx.lineTo(end.x, end.y);
+              dctx.moveTo(cx, 0);
+              dctx.lineTo(cx, divider.height);
               dctx.stroke();
             }
           }
