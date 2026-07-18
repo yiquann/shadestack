@@ -129,4 +129,23 @@ describe("buildGlLayers", () => {
       expect(l.clipMask).toBeUndefined();
     }
   });
+
+  const REGION = {} as CanvasImageSource;
+
+  it("attaches the region clip to every emitted layer", () => {
+    const applied = layer({
+      category: "FOUNDATION",
+      product: { colorHex: "#E8C8A4", coverage: "Medium" } as AppliedLayer["product"],
+    });
+    const result = buildGlLayers([applied], POINTS, 100, 100, undefined, REGION);
+    expect(result.length).toBeGreaterThan(0);
+    for (const l of result) expect(l.regionClip).toBe(REGION);
+  });
+
+  it("leaves regionClip undefined when not supplied", () => {
+    const applied = layer({ category: "LIPSTICK" });
+    for (const l of buildGlLayers([applied], POINTS, 100, 100)) {
+      expect(l.regionClip).toBeUndefined();
+    }
+  });
 });

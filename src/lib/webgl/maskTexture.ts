@@ -21,6 +21,11 @@ function tracePath(ctx: CanvasRenderingContext2D, polygon: Point[]): void {
  * `clipMask`, if supplied, is intersected in afterward (destination-in) under
  * the same blur — used to snap a layer's mask to an externally-supplied skin
  * region (e.g. the real hairline) with a feathered edge instead of a hard cut.
+ *
+ * `regionClip`, if supplied, is intersected in after `clipMask` (destination-in)
+ * under the same blur — used to further constrain a layer's mask to a region
+ * (e.g. split-view left/right half), composing with the skin clip for final
+ * masking: (polygon − holes) ∩ skin ∩ region.
  */
 export function drawMask(
   canvas: HTMLCanvasElement,
@@ -29,7 +34,8 @@ export function drawMask(
   height: number,
   featherPx: number,
   holes?: Point[][],
-  clipMask?: CanvasImageSource
+  clipMask?: CanvasImageSource,
+  regionClip?: CanvasImageSource
 ): void {
   if (canvas.width !== width) canvas.width = width;
   if (canvas.height !== height) canvas.height = height;
@@ -57,6 +63,15 @@ export function drawMask(
   if (clipMask) {
     ctx.globalCompositeOperation = "destination-in";
     ctx.drawImage(clipMask, 0, 0, width, height);
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  // Intersect with the region clip (scaled to this canvas). Keeps only where
+  // the mask is set within the region, composing with the skin clip for final
+  // masking. Blur stays on so the clipped edge is feathered, not hard.
+  if (regionClip) {
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.drawImage(regionClip, 0, 0, width, height);
     ctx.globalCompositeOperation = "source-over";
   }
 }

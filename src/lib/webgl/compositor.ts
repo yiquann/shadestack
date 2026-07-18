@@ -18,6 +18,7 @@ export type TintLayer = {
   blendMode: BlendMode;
   featherPx: number;
   clipMask?: CanvasImageSource;
+  regionClip?: CanvasImageSource;
 };
 
 export type SmoothLayer = {
@@ -30,6 +31,7 @@ export type SmoothLayer = {
   // resolution drop. Punched out of the mask under the same feather.
   holes?: Point[][];
   clipMask?: CanvasImageSource;
+  regionClip?: CanvasImageSource;
 };
 
 export type Layer = TintLayer | SmoothLayer;
@@ -172,7 +174,8 @@ export function createCompositeRenderer(canvas: HTMLCanvasElement): CompositeRen
         height,
         layer.featherPx,
         layer.kind === "smooth" ? layer.holes : undefined,
-        layer.clipMask
+        layer.clipMask,
+        layer.regionClip
       );
 
       if (layer.kind === "smooth") {

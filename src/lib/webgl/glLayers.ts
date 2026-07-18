@@ -39,7 +39,8 @@ export function buildGlLayers(
   points: Point[],
   width: number,
   height: number,
-  clipMask?: CanvasImageSource
+  clipMask?: CanvasImageSource,
+  regionClip?: CanvasImageSource
 ): Layer[] {
   return layers
     .filter((l) => l.visible)
@@ -89,6 +90,7 @@ export function buildGlLayers(
           blendMode: config.blendMode,
           featherPx: scaledFeather,
           clipMask: layerClip,
+          regionClip,
         };
         if (smoothStrength > 0) {
           const smooth: Layer = {
@@ -98,6 +100,7 @@ export function buildGlLayers(
             featherPx: scaledFeather,
             holes: smoothHoles,
             clipMask: layerClip,
+            regionClip,
           };
           return [smooth, tint];
         }
