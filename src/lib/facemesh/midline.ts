@@ -1,22 +1,56 @@
 import type { Point } from "./polygon";
 
-const FOREHEAD_CENTER = 10;
-const CHIN = 152;
+// Landmarks along the face's sagittal midline, forehead → chin (MediaPipe
+// FaceMesh). Using many points and fitting a line through them (below) is far
+// more stable than a 2-point forehead→chin line, which jitters frame-to-frame
+// and drifts off-centre when either endpoint is noisy.
+const MIDLINE_INDICES = [
+  10, 151, 9, 8, 168, 6, 197, 195, 5, 4, 1, 19, 94, 2, 164, 0, 13, 14, 17, 18,
+  200, 199, 175, 152,
+];
 
 export function midlineEndpoints(
   points: Point[],
   width: number,
   height: number
 ): { top: Point; bottom: Point } {
+  // Total-least-squares fit: the principal axis of the midline landmark cloud.
+  let mx = 0;
+  let my = 0;
+  for (const i of MIDLINE_INDICES) {
+    mx += points[i].x * width;
+    my += points[i].y * height;
+  }
+  mx /= MIDLINE_INDICES.length;
+  my /= MIDLINE_INDICES.length;
+
+  let sxx = 0;
+  let syy = 0;
+  let sxy = 0;
+  for (const i of MIDLINE_INDICES) {
+    const dx = points[i].x * width - mx;
+    const dy = points[i].y * height - my;
+    sxx += dx * dx;
+    syy += dy * dy;
+    sxy += dx * dy;
+  }
+
+  // Angle of the principal (largest-variance) eigenvector of the covariance
+  // matrix [[sxx,sxy],[sxy,syy]] — the best-fit line direction.
+  const theta = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+  let dx = Math.cos(theta);
+  let dy = Math.sin(theta);
+  // Orient toward the chin (increasing y = downward).
+  if (dy < 0) {
+    dx = -dx;
+    dy = -dy;
+  }
+
+  // Two points on the fitted line through the centroid; callers extend it to
+  // the canvas edges (`fullSpanMidline`) or far along it (`buildHalfMask`).
   return {
-    top: {
-      x: points[FOREHEAD_CENTER].x * width,
-      y: points[FOREHEAD_CENTER].y * height,
-    },
-    bottom: {
-      x: points[CHIN].x * width,
-      y: points[CHIN].y * height,
-    },
+    top: { x: mx - dx * height, y: my - dy * height },
+    bottom: { x: mx + dx * height, y: my + dy * height },
   };
 }
 

@@ -2,17 +2,24 @@ import { describe, expect, it } from "vitest";
 import { midlineEndpoints, fullSpanMidline } from "./midline";
 import type { Point } from "./polygon";
 
-const POINTS: Point[] = Array.from({ length: 468 }, (_, i) => ({
-  x: i === 10 ? 0.5 : i === 152 ? 0.5 : 0,
-  y: i === 10 ? 0.1 : i === 152 ? 0.9 : 0,
-}));
-
 describe("midlineEndpoints", () => {
-  it("maps forehead (10) and chin (152) to canvas pixels", () => {
-    expect(midlineEndpoints(POINTS, 200, 400)).toEqual({
-      top: { x: 100, y: 40 },
-      bottom: { x: 100, y: 360 },
+  it("fits a vertical axis centred on a vertical midline cloud", () => {
+    // All landmarks on x=0.5 with a vertical spread → axis vertical through 0.5.
+    const pts: Point[] = Array.from({ length: 468 }, (_, i) => ({ x: 0.5, y: i / 468 }));
+    const res = midlineEndpoints(pts, 200, 400);
+    expect(res.top.x).toBeCloseTo(100);
+    expect(res.bottom.x).toBeCloseTo(100);
+    expect(res.bottom.y).toBeGreaterThan(res.top.y);
+  });
+
+  it("follows a rightward (down-right) tilt", () => {
+    // x grows with y → the axis tilts down-right, so the lower endpoint is to the right.
+    const pts: Point[] = Array.from({ length: 468 }, (_, i) => {
+      const y = i / 468;
+      return { x: 0.4 + 0.2 * y, y };
     });
+    const res = midlineEndpoints(pts, 200, 400);
+    expect(res.bottom.x).toBeGreaterThan(res.top.x);
   });
 });
 
