@@ -4,7 +4,7 @@ import { DESIGN_TOKENS } from "@/lib/tokens";
 export function HeroBanner() {
   return (
     <div
-      className="relative mx-5 my-4 overflow-hidden rounded-card p-6 text-surface"
+      className="relative shrink-0 overflow-hidden rounded-card p-6 text-surface"
       style={{ background: DESIGN_TOKENS.gradients.heroBanner }}
     >
       {/* Soft highlighter-style glow — echoes the app's own screen-blend highlighter layer */}
