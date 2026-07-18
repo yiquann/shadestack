@@ -4,9 +4,10 @@ import { ProductCard } from "./ProductCard";
 type Props = {
   products: CatalogProduct[];
   onSelect: (product: CatalogProduct) => void;
+  tryOnAsLink?: boolean;
 };
 
-export function ProductList({ products, onSelect }: Props) {
+export function ProductList({ products, onSelect, tryOnAsLink = true }: Props) {
   if (products.length === 0) {
     return (
       <p className="px-5 py-8 text-center text-sm text-textMuted">No products found</p>
@@ -16,7 +17,12 @@ export function ProductList({ products, onSelect }: Props) {
   return (
     <div>
       {products.map((product) => (
-        <ProductCard key={product.id} product={product} onSelect={onSelect} />
+        <ProductCard
+          key={product.id}
+          product={product}
+          onSelect={onSelect}
+          asLink={tryOnAsLink}
+        />
       ))}
     </div>
   );

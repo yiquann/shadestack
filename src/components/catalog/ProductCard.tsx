@@ -5,10 +5,15 @@ import { useTryOnSession } from "@/lib/tryon/TryOnSessionContext";
 type Props = {
   product: CatalogProduct;
   onSelect: (product: CatalogProduct) => void;
+  // Discover links to the Try On tab while adding; in-app (already on Try On)
+  // it should just add without a same-page navigation.
+  asLink?: boolean;
 };
 
-export function ProductCard({ product, onSelect }: Props) {
+export function ProductCard({ product, onSelect, asLink = true }: Props) {
   const { addProduct } = useTryOnSession();
+  const tryOnClass =
+    "shrink-0 rounded-pill bg-chip px-3 py-2 text-xs font-semibold text-ink transition-colors duration-150 hover:bg-chip-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
 
   return (
     <div className="flex items-center gap-3 border-b border-border px-5 py-4 transition-colors duration-150 hover:bg-chip/40">
@@ -44,14 +49,25 @@ export function ProductCard({ product, onSelect }: Props) {
           }}
         />
       </button>
-      <Link
-        href="/try-on"
-        onClick={() => addProduct(product)}
-        data-testid={`try-on-${product.id}`}
-        className="shrink-0 rounded-pill bg-chip px-3 py-2 text-xs font-semibold text-ink transition-colors duration-150 hover:bg-chip-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
-      >
-        Try On
-      </Link>
+      {asLink ? (
+        <Link
+          href="/try-on"
+          onClick={() => addProduct(product)}
+          data-testid={`try-on-${product.id}`}
+          className={tryOnClass}
+        >
+          Try On
+        </Link>
+      ) : (
+        <button
+          type="button"
+          onClick={() => addProduct(product)}
+          data-testid={`try-on-${product.id}`}
+          className={tryOnClass}
+        >
+          Try On
+        </button>
+      )}
     </div>
   );
 }

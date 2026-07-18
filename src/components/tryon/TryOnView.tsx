@@ -8,7 +8,7 @@ import { FaceMeshTracker } from "./FaceMeshTracker";
 import { PhotoSource } from "./PhotoSource";
 import { CameraSource } from "./CameraSource";
 import { LayerPanel } from "@/components/layers/LayerPanel";
-import { AddProductsSection } from "./AddProductsSection";
+import { ProductSearchBar } from "./ProductSearchBar";
 import { nextFacingMode, type FacingMode } from "@/lib/facemesh/cameraHelpers";
 
 type Props = {
@@ -32,9 +32,9 @@ export function TryOnView({ products }: Props) {
       </div>
 
       <div className="mt-4 flex min-h-0 flex-1 flex-col gap-4 md:flex-row">
-        {/* Left: face preview, controls, and the active-layers stack (2/3) */}
-        <div className="flex min-h-0 flex-col gap-3 md:w-2/3">
-          <div className="shrink-0">
+        {/* Left: face preview + controls */}
+        <div className="flex min-h-0 flex-col items-center gap-3 md:w-[45%]">
+          <div className="w-full shrink-0">
             {mode === "model" && <FaceMeshTracker layers={layers} />}
             {mode === "photo" && <PhotoSource layers={layers} />}
             {mode === "camera" && <CameraSource layers={layers} facingMode={facingMode} />}
@@ -61,15 +61,16 @@ export function TryOnView({ products }: Props) {
               </button>
             )}
           </div>
+        </div>
 
+        {/* Right: search-to-add bar + the Active Layers stack (fills the rest) */}
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="shrink-0">
+            <ProductSearchBar products={products} />
+          </div>
           <div className="min-h-0 flex-1 overflow-y-auto rounded-card border border-border p-3">
             <LayerPanel />
           </div>
-        </div>
-
-        {/* Right: product catalog to add from (1/3) */}
-        <div className="flex min-h-0 flex-col overflow-hidden rounded-card border border-border md:w-1/3">
-          <AddProductsSection products={products} />
         </div>
       </div>
     </main>
