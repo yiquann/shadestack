@@ -97,4 +97,36 @@ describe("buildGlLayers", () => {
       expect(smooth.holes).toBeUndefined();
     }
   });
+
+  const CLIP = {} as CanvasImageSource;
+
+  it("attaches the clip mask to foundation smooth + tint layers", () => {
+    const applied = layer({
+      category: "FOUNDATION",
+      product: { colorHex: "#E8C8A4", coverage: "Medium" } as AppliedLayer["product"],
+    });
+    const [smooth, tint] = buildGlLayers([applied], POINTS, 100, 100, CLIP);
+    expect(smooth.clipMask).toBe(CLIP);
+    expect(tint.clipMask).toBe(CLIP);
+  });
+
+  it("does not attach the clip mask to non-foundation categories (BLUSH)", () => {
+    const applied = layer({
+      category: "BLUSH",
+      product: { colorHex: "#E8A0A0", coverage: "" } as AppliedLayer["product"],
+    });
+    for (const l of buildGlLayers([applied], POINTS, 100, 100, CLIP)) {
+      expect(l.clipMask).toBeUndefined();
+    }
+  });
+
+  it("leaves foundation unclipped when no clip mask is supplied", () => {
+    const applied = layer({
+      category: "FOUNDATION",
+      product: { colorHex: "#E8C8A4", coverage: "Medium" } as AppliedLayer["product"],
+    });
+    for (const l of buildGlLayers([applied], POINTS, 100, 100)) {
+      expect(l.clipMask).toBeUndefined();
+    }
+  });
 });

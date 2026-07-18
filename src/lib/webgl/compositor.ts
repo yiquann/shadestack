@@ -17,6 +17,7 @@ export type TintLayer = {
   opacity: number;
   blendMode: BlendMode;
   featherPx: number;
+  clipMask?: CanvasImageSource;
 };
 
 export type SmoothLayer = {
@@ -28,6 +29,7 @@ export type SmoothLayer = {
   // foundation blur) so facial features stay sharp instead of reading as a
   // resolution drop. Punched out of the mask under the same feather.
   holes?: Point[][];
+  clipMask?: CanvasImageSource;
 };
 
 export type Layer = TintLayer | SmoothLayer;
@@ -169,7 +171,8 @@ export function createCompositeRenderer(canvas: HTMLCanvasElement): CompositeRen
         width,
         height,
         layer.featherPx,
-        layer.kind === "smooth" ? layer.holes : undefined
+        layer.kind === "smooth" ? layer.holes : undefined,
+        layer.clipMask
       );
 
       if (layer.kind === "smooth") {

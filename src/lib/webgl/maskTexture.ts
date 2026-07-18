@@ -17,6 +17,10 @@ function tracePath(ctx: CanvasRenderingContext2D, polygon: Point[]): void {
  * `holes` are punched out of the filled mask (destination-out) under the same
  * blur, so their edges are feathered too — used to keep facial features (eyes,
  * lips) out of the foundation skin-smoothing region.
+ *
+ * `clipMask`, if supplied, is intersected in afterward (destination-in) under
+ * the same blur — used to snap a layer's mask to an externally-supplied skin
+ * region (e.g. the real hairline) with a feathered edge instead of a hard cut.
  */
 export function drawMask(
   canvas: HTMLCanvasElement,
@@ -24,7 +28,8 @@ export function drawMask(
   width: number,
   height: number,
   featherPx: number,
-  holes?: Point[][]
+  holes?: Point[][],
+  clipMask?: CanvasImageSource
 ): void {
   if (canvas.width !== width) canvas.width = width;
   if (canvas.height !== height) canvas.height = height;
@@ -43,6 +48,15 @@ export function drawMask(
       tracePath(ctx, hole);
       ctx.fill();
     }
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  // Intersect with the skin mask (scaled to this canvas). Keeps only where both
+  // the polygon mask and the skin mask are set, snapping the top edge to the
+  // hairline. Blur stays on so the clipped edge is feathered, not hard.
+  if (clipMask) {
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.drawImage(clipMask, 0, 0, width, height);
     ctx.globalCompositeOperation = "source-over";
   }
 }

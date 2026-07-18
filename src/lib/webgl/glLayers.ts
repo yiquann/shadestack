@@ -11,7 +11,7 @@ import type { AppliedLayer } from "@/lib/tryon/session";
 // (landmark 168, between the eyes), the center rises most and the sides least,
 // keeping a smooth dome without widening the temples.
 const FOREHEAD_TOP = new Set([10, 338, 297, 332, 284, 109, 67, 103, 54]);
-const FOREHEAD_LIFT = 1.55;
+const FOREHEAD_LIFT = 1.9;
 const NASION = 168;
 
 function faceOvalPolygon(points: Point[], width: number, height: number): Point[] {
@@ -38,13 +38,16 @@ export function buildGlLayers(
   layers: AppliedLayer[],
   points: Point[],
   width: number,
-  height: number
+  height: number,
+  clipMask?: CanvasImageSource
 ): Layer[] {
   return layers
     .filter((l) => l.visible)
     .flatMap((l) => {
       const config = CATEGORY_RENDER[l.category];
       const tintColor = hexToRgb01(l.product.colorHex);
+      // Only the full-face foundation blur is clipped to the detected skin.
+      const layerClip = config.smooth === "coverage" ? clipMask : undefined;
 
       // featherPx values are tuned against a ~600px canvas; scale them with the
       // actual canvas so raising the render resolution doesn't harden the edges.
@@ -85,6 +88,7 @@ export function buildGlLayers(
           opacity: tintOpacity,
           blendMode: config.blendMode,
           featherPx: scaledFeather,
+          clipMask: layerClip,
         };
         if (smoothStrength > 0) {
           const smooth: Layer = {
@@ -93,6 +97,7 @@ export function buildGlLayers(
             strength: smoothStrength,
             featherPx: scaledFeather,
             holes: smoothHoles,
+            clipMask: layerClip,
           };
           return [smooth, tint];
         }
