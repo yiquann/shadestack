@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import type { Point } from "@/lib/facemesh/polygon";
 import { createCompositeRenderer, type CompositeRenderer, type Layer } from "@/lib/webgl/compositor";
 import { buildGlLayers } from "@/lib/webgl/glLayers";
-import { midlineEndpoints } from "@/lib/facemesh/midline";
+import { midlineEndpoints, fullSpanMidline } from "@/lib/facemesh/midline";
 import { buildHalfMask } from "@/lib/webgl/regionMask";
 import type { AppliedLayer } from "@/lib/tryon/session";
 
@@ -71,11 +71,12 @@ export function RenderCanvas({ image, points, width, height, looks, clipMask }: 
     ctx.clearRect(0, 0, width, height);
     if (looks.mode === "split" && looks.divider) {
       const { top, bottom } = midlineEndpoints(points, width, height);
-      ctx.strokeStyle = "rgba(255,255,255,0.85)";
-      ctx.lineWidth = 2;
+      const { start, end } = fullSpanMidline(top, bottom, width, height);
+      ctx.strokeStyle = "rgba(255,255,255,0.9)";
+      ctx.lineWidth = 4;
       ctx.beginPath();
-      ctx.moveTo(top.x, top.y);
-      ctx.lineTo(bottom.x, bottom.y);
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
       ctx.stroke();
     }
   }, [image, points, width, height, looks, clipMask]);

@@ -9,7 +9,7 @@ import { createCompositeRenderer, type Layer } from "@/lib/webgl/compositor";
 import { buildGlLayers } from "@/lib/webgl/glLayers";
 import { createVideoSegmenter } from "@/lib/segment/imageSegmenter";
 import { buildSkinMask } from "@/lib/segment/skinMask";
-import { midlineEndpoints } from "@/lib/facemesh/midline";
+import { midlineEndpoints, fullSpanMidline } from "@/lib/facemesh/midline";
 import { buildHalfMask } from "@/lib/webgl/regionMask";
 import type { Point } from "@/lib/facemesh/polygon";
 import type { RenderLooks } from "./RenderCanvas";
@@ -159,11 +159,12 @@ export function CameraSource({ looks, facingMode }: Props) {
             dctx.clearRect(0, 0, divider.width, divider.height);
             if (rl.mode === "split" && rl.divider && lastPoints) {
               const { top, bottom } = midlineEndpoints(lastPoints, canvas.width, canvas.height);
-              dctx.strokeStyle = "rgba(255,255,255,0.85)";
-              dctx.lineWidth = 2;
+              const { start, end } = fullSpanMidline(top, bottom, canvas.width, canvas.height);
+              dctx.strokeStyle = "rgba(255,255,255,0.9)";
+              dctx.lineWidth = 4;
               dctx.beginPath();
-              dctx.moveTo(top.x, top.y);
-              dctx.lineTo(bottom.x, bottom.y);
+              dctx.moveTo(start.x, start.y);
+              dctx.lineTo(end.x, end.y);
               dctx.stroke();
             }
           }
