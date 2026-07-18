@@ -2,18 +2,19 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { AppliedLayer } from "@/lib/tryon/session";
+import type { AppliedLayer, LookId } from "@/lib/tryon/session";
 import { useTryOnSession } from "@/lib/tryon/TryOnSessionContext";
 import { CATEGORY_LABELS } from "@/lib/catalog/types";
 
 type Props = {
   layer: AppliedLayer;
+  look: LookId;
 };
 
-export function LayerRow({ layer }: Props) {
+export function LayerRow({ layer, look }: Props) {
   const { setOpacity, toggleVisible, removeLayer } = useTryOnSession();
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
-    id: layer.category,
+    id: `${look}:${layer.category}`,
   });
 
   const style = {
@@ -52,14 +53,14 @@ export function LayerRow({ layer }: Props) {
           min={0}
           max={100}
           value={Math.round(layer.opacity * 100)}
-          onChange={(e) => setOpacity(layer.category, Number(e.target.value) / 100)}
+          onChange={(e) => setOpacity(layer.category, Number(e.target.value) / 100, look)}
           aria-label={`${layer.product.name} opacity`}
           data-testid={`opacity-${layer.category}`}
           className="mt-1 w-full accent-accent"
         />
       </div>
       <button
-        onClick={() => toggleVisible(layer.category)}
+        onClick={() => toggleVisible(layer.category, look)}
         aria-label={layer.visible ? "Hide layer" : "Show layer"}
         aria-pressed={layer.visible}
         data-testid={`toggle-visible-${layer.category}`}
@@ -68,7 +69,7 @@ export function LayerRow({ layer }: Props) {
         {layer.visible ? "👁" : "🚫"}
       </button>
       <button
-        onClick={() => removeLayer(layer.category)}
+        onClick={() => removeLayer(layer.category, look)}
         aria-label={`Remove ${layer.product.name}`}
         data-testid={`remove-${layer.category}`}
         className="shrink-0 rounded-full p-2 text-textSecondary transition-colors duration-150 hover:bg-chip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"

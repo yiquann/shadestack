@@ -3,20 +3,25 @@
 import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { CatalogProduct } from "@/lib/catalog/types";
+import type { LookId } from "@/lib/tryon/session";
 import { useTryOnSession } from "@/lib/tryon/TryOnSessionContext";
 import { LayerRow } from "./LayerRow";
 
-export function LayerPanel() {
-  const { layers, moveLayer } = useTryOnSession();
+type Props = {
+  look: LookId;
+};
+
+export function LayerPanel({ look }: Props) {
+  const { looks, moveLayer } = useTryOnSession();
+  const layers = looks[look];
   const topFirst = [...layers].reverse();
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    moveLayer(
-      active.id as CatalogProduct["category"],
-      over.id as CatalogProduct["category"]
-    );
+    const from = String(active.id).split(":")[1] as CatalogProduct["category"];
+    const to = String(over.id).split(":")[1] as CatalogProduct["category"];
+    moveLayer(from, to, look);
   }
 
   return (
@@ -31,12 +36,12 @@ export function LayerPanel() {
       ) : (
         <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext
-            items={topFirst.map((l) => l.category)}
+            items={topFirst.map((l) => `${look}:${l.category}`)}
             strategy={verticalListSortingStrategy}
           >
             <div className="mt-2 rounded-card border border-border">
               {topFirst.map((layer) => (
-                <LayerRow key={layer.category} layer={layer} />
+                <LayerRow key={layer.category} layer={layer} look={look} />
               ))}
             </div>
           </SortableContext>

@@ -61,7 +61,7 @@ export function ProductDetailSheet({ product, onClose }: Props) {
         <div className="mt-6 flex gap-3">
           <Link
             href="/try-on"
-            onClick={() => addProduct(product)}
+            onClick={() => addProduct(product, "A")}
             data-testid={`try-on-${product.id}`}
             className="flex-1 rounded-pill bg-accent px-4 py-3 text-center text-sm font-semibold text-surface transition-colors duration-150 hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
           >

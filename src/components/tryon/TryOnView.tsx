@@ -16,7 +16,8 @@ type Props = {
 };
 
 export function TryOnView({ products }: Props) {
-  const { layers, clearLook } = useTryOnSession();
+  const { looks, clearLook } = useTryOnSession();
+  const layers = looks.A;
   const [mode, setMode] = useState<SourceMode>("model");
   const [facingMode, setFacingMode] = useState<FacingMode>("user");
 
@@ -44,7 +45,7 @@ export function TryOnView({ products }: Props) {
             {layers.length > 0 && (
               <button
                 type="button"
-                onClick={clearLook}
+                onClick={() => clearLook("A")}
                 data-testid="clear-look-button"
                 className="rounded-pill border border-border px-4 py-2 text-xs font-semibold text-textSecondary transition-colors duration-150 hover:bg-chip/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
@@ -69,7 +70,7 @@ export function TryOnView({ products }: Props) {
             <ProductSearchBar products={products} />
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto rounded-card border border-border p-3">
-            <LayerPanel />
+            <LayerPanel look="A" />
           </div>
         </div>
       </div>
