@@ -16,7 +16,7 @@ const SEGMENT_BASE =
 
 export function ModeSourcePicker({ active, onChange }: Props) {
   return (
-    <div className="mx-5 flex gap-1 rounded-pill bg-chip p-1">
+    <div className="flex gap-1 rounded-pill bg-chip p-1">
       {MODES.map((mode) => {
         const isActive = mode.id === active;
         return (

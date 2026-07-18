@@ -126,8 +126,8 @@ function PhotoPreview({ url, layers }: { url: string; layers: AppliedLayer[] }) 
   return (
     <div>
       <div
-        className="relative mx-auto overflow-hidden rounded-card"
-        style={{ width: size.width, height: size.height, maxWidth: "100%" }}
+        className="relative mx-auto w-full max-w-[380px] overflow-hidden rounded-card"
+        style={{ aspectRatio: `${size.width} / ${size.height}` }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img

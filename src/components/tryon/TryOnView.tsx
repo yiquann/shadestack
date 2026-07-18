@@ -9,28 +9,69 @@ import { PhotoSource } from "./PhotoSource";
 import { CameraSource } from "./CameraSource";
 import { LayerPanel } from "@/components/layers/LayerPanel";
 import { AddProductsSection } from "./AddProductsSection";
+import { nextFacingMode, type FacingMode } from "@/lib/facemesh/cameraHelpers";
 
 type Props = {
   products: CatalogProduct[];
 };
 
 export function TryOnView({ products }: Props) {
-  const { layers } = useTryOnSession();
+  const { layers, clearLook } = useTryOnSession();
   const [mode, setMode] = useState<SourceMode>("model");
+  const [facingMode, setFacingMode] = useState<FacingMode>("user");
 
   return (
-    <main className="pb-6">
-      <h1 className="px-5 pt-6 font-display text-2xl text-ink">Try On</h1>
-      <div className="mt-4">
-        <ModeSourcePicker active={mode} onChange={setMode} />
+    // Fixed to the viewport (minus the bottom nav) and non-scrolling; the two
+    // panels below scroll internally instead of the whole page.
+    <main className="flex h-[calc(100dvh-5rem)] flex-col overflow-hidden px-5 pt-6">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-2xl text-ink">Try On</h1>
+        <div className="w-full sm:w-auto sm:min-w-[260px]">
+          <ModeSourcePicker active={mode} onChange={setMode} />
+        </div>
       </div>
-      <div className="mt-4 px-5">
-        {mode === "model" && <FaceMeshTracker layers={layers} />}
-        {mode === "photo" && <PhotoSource layers={layers} />}
-        {mode === "camera" && <CameraSource layers={layers} />}
+
+      <div className="mt-4 flex min-h-0 flex-1 flex-col gap-4 md:flex-row">
+        {/* Left: face preview, controls, and the active-layers stack (2/3) */}
+        <div className="flex min-h-0 flex-col gap-3 md:w-2/3">
+          <div className="shrink-0">
+            {mode === "model" && <FaceMeshTracker layers={layers} />}
+            {mode === "photo" && <PhotoSource layers={layers} />}
+            {mode === "camera" && <CameraSource layers={layers} facingMode={facingMode} />}
+          </div>
+
+          <div className="flex shrink-0 items-center justify-center gap-2">
+            {layers.length > 0 && (
+              <button
+                type="button"
+                onClick={clearLook}
+                data-testid="clear-look-button"
+                className="rounded-pill border border-border px-4 py-2 text-xs font-semibold text-textSecondary transition-colors duration-150 hover:bg-chip/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                Clear Look
+              </button>
+            )}
+            {mode === "camera" && (
+              <button
+                type="button"
+                onClick={() => setFacingMode(nextFacingMode)}
+                className="rounded-pill bg-chip px-4 py-2 text-xs font-semibold text-textSecondary transition-colors duration-150 hover:bg-chip-hover hover:text-ink"
+              >
+                Flip camera
+              </button>
+            )}
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-card border border-border p-3">
+            <LayerPanel />
+          </div>
+        </div>
+
+        {/* Right: product catalog to add from (1/3) */}
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-card border border-border md:w-1/3">
+          <AddProductsSection products={products} />
+        </div>
       </div>
-      <LayerPanel />
-      <AddProductsSection products={products} />
     </main>
   );
 }

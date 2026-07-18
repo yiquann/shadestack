@@ -31,10 +31,7 @@ export function FaceMeshTracker({ layers }: Props) {
 
   return (
     <div>
-      <div
-        className="relative mx-auto overflow-hidden rounded-card"
-        style={{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT, maxWidth: "100%" }}
-      >
+      <div className="relative mx-auto aspect-[5/6] w-full max-w-[380px] overflow-hidden rounded-card">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           ref={imageRef}

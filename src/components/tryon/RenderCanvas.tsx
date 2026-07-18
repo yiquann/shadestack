@@ -40,7 +40,7 @@ export function RenderCanvas({ image, points, width, height, layers, clipMask }:
       width={width}
       height={height}
       data-testid="render-canvas"
-      className="pointer-events-none absolute inset-0"
+      className="pointer-events-none absolute inset-0 h-full w-full"
     />
   );
 }

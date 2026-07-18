@@ -3,11 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FaceLandmarker, ImageSegmenter } from "@mediapipe/tasks-vision";
 import { createVideoFaceLandmarker } from "@/lib/facemesh/faceLandmarker";
-import {
-  nextFacingMode,
-  detectionInterval,
-  type FacingMode,
-} from "@/lib/facemesh/cameraHelpers";
+import { detectionInterval, type FacingMode } from "@/lib/facemesh/cameraHelpers";
 import { useCameraStream } from "@/lib/facemesh/useCameraStream";
 import { createCompositeRenderer } from "@/lib/webgl/compositor";
 import { buildGlLayers } from "@/lib/webgl/glLayers";
@@ -32,10 +28,10 @@ const SHOW_FPS = process.env.NODE_ENV !== "production";
 
 type Props = {
   layers: AppliedLayer[];
+  facingMode: FacingMode;
 };
 
-export function CameraSource({ layers }: Props) {
-  const [facingMode, setFacingMode] = useState<FacingMode>("user");
+export function CameraSource({ layers, facingMode }: Props) {
   const { stream, status, message } = useCameraStream(facingMode);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -192,10 +188,7 @@ export function CameraSource({ layers }: Props) {
 
   return (
     <div>
-      <div
-        className="relative mx-auto overflow-hidden rounded-card bg-ink"
-        style={{ width: WIDTH, height: HEIGHT, maxWidth: "100%" }}
-      >
+      <div className="relative mx-auto aspect-[3/4] w-full max-w-[380px] overflow-hidden rounded-card bg-ink">
         <video
           ref={videoRef}
           autoPlay
@@ -218,17 +211,6 @@ export function CameraSource({ layers }: Props) {
         )}
       </div>
 
-      {status === "ready" && (
-        <div className="mt-3 flex items-center justify-center">
-          <button
-            type="button"
-            onClick={() => setFacingMode(nextFacingMode)}
-            className="rounded-pill bg-chip px-4 py-2 text-xs font-semibold text-textSecondary transition-colors duration-150 hover:bg-chip-hover hover:text-ink"
-          >
-            Flip camera
-          </button>
-        </div>
-      )}
       {status === "denied" && (
         <p className="mt-2 text-center text-xs text-textMuted">
           Camera access is needed for live try-on. Enable it in your browser settings.
