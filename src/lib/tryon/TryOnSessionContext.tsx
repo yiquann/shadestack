@@ -29,6 +29,7 @@ type TryOnSessionValue = {
   toggleVisible: (category: CatalogProduct["category"], look: LookId) => void;
   moveLayer: (from: CatalogProduct["category"], to: CatalogProduct["category"], look: LookId) => void;
   clearLook: (look: LookId) => void;
+  replaceLook: (look: LookId, layers: AppliedLayer[]) => void;
   setMode: (mode: ViewMode) => void;
 };
 
@@ -82,6 +83,9 @@ export function TryOnSessionProvider({ children }: { children: ReactNode }) {
       toggleVisible: (category, look) => mutate(look, (l) => toggleVisibleFn(l, category)),
       moveLayer: (from, to, look) => mutate(look, (l) => moveLayerFn(l, from, to)),
       clearLook: (look) => mutate(look, () => clearLookFn()),
+      // Re-apply a saved look; deep-copy so the session never aliases the
+      // stored look's layers.
+      replaceLook: (look, layers) => mutate(look, () => layers.map((l) => ({ ...l }))),
       // Entering split leaves Look B as-is (bare until the user adds to it);
       // it is not seeded from Look A.
       setMode: (mode) => setState((s) => ({ ...s, mode })),

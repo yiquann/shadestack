@@ -13,6 +13,8 @@ import { LayerPanel } from "@/components/layers/LayerPanel";
 import { ProductSearchBar } from "./ProductSearchBar";
 import type { FacingMode } from "@/lib/facemesh/cameraHelpers";
 import { SplitControls } from "./SplitControls";
+import { SaveLookSheet } from "./SaveLookSheet";
+import { useSaved } from "@/lib/saved/SavedContext";
 
 const ICON_BTN =
   "flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
@@ -23,6 +25,8 @@ type Props = {
 
 export function TryOnView({ products }: Props) {
   const { looks, clearLook, mode: viewMode, setMode: setViewMode } = useTryOnSession();
+  const { saveLook } = useSaved();
+  const [showSaveSheet, setShowSaveSheet] = useState(false);
   const [swapped, setSwapped] = useState(false);
   // Split-view divider line (on by default). Separate from the single-view
   // before/after comparison, which is opt-in.
@@ -91,6 +95,15 @@ export function TryOnView({ products }: Props) {
                 className="rounded-pill border border-border px-4 py-2 text-xs font-semibold text-textSecondary transition-colors duration-150 hover:bg-chip/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 Clear Look
+              </button>
+            )}
+            {hasLayers && (
+              <button
+                type="button"
+                onClick={() => setShowSaveSheet(true)}
+                className="rounded-pill bg-chip px-4 py-2 text-xs font-semibold text-ink transition-colors duration-150 hover:bg-chip-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                Save Look
               </button>
             )}
             {(viewMode === "split" || (viewMode === "single" && hasB)) && (
@@ -209,6 +222,16 @@ export function TryOnView({ products }: Props) {
           )}
         </div>
       </div>
+
+      {showSaveSheet && (
+        <SaveLookSheet
+          onClose={() => setShowSaveSheet(false)}
+          onSave={(name) => {
+            saveLook(name, looks[activeLook]);
+            setShowSaveSheet(false);
+          }}
+        />
+      )}
     </main>
   );
 }

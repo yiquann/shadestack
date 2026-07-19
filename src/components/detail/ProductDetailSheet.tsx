@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import type { CatalogProduct } from "@/lib/catalog/types";
 import { DESIGN_TOKENS } from "@/lib/tokens";
 import { SimilarCarousel } from "./SimilarCarousel";
 import { useTryOnSession } from "@/lib/tryon/TryOnSessionContext";
+import { useSaved } from "@/lib/saved/SavedContext";
 
 type Props = {
   product: CatalogProduct;
@@ -13,8 +13,9 @@ type Props = {
 };
 
 export function ProductDetailSheet({ product, onClose }: Props) {
-  const [saved, setSaved] = useState(false);
   const { addProduct } = useTryOnSession();
+  const { isProductSaved, toggleProductSaved } = useSaved();
+  const saved = isProductSaved(product.id);
   const sephoraUrl = `https://www.sephora.com/search?keyword=${encodeURIComponent(
     `${product.brand} ${product.name}`
   )}`;
@@ -68,7 +69,7 @@ export function ProductDetailSheet({ product, onClose }: Props) {
             Try On
           </Link>
           <button
-            onClick={() => setSaved((s) => !s)}
+            onClick={() => toggleProductSaved(product)}
             aria-label={saved ? "Remove from saved" : "Save"}
             aria-pressed={saved}
             className={`rounded-pill bg-chip px-4 py-3 text-sm font-semibold transition-colors duration-150 hover:bg-chip-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
