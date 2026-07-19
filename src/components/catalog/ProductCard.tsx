@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { CatalogProduct } from "@/lib/catalog/types";
 import type { LookId } from "@/lib/tryon/session";
 import { useTryOnSession } from "@/lib/tryon/TryOnSessionContext";
+import { CategoryIcon } from "./CategoryIcon";
 
 type Props = {
   product: CatalogProduct;
@@ -24,20 +25,14 @@ export function ProductCard({ product, onSelect, asLink = true, look = "A" }: Pr
         onClick={() => onSelect(product)}
         className="flex flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
       >
-        <div
-          className="relative h-14 w-14 shrink-0 overflow-hidden rounded-card"
-          style={{
-            background: `linear-gradient(145deg, ${product.colorHex}cc, ${product.colorHex})`,
-            boxShadow:
-              "inset 0 -3px 6px rgba(0,0,0,0.12), inset 0 1px 1px rgba(255,255,255,0.35)",
-          }}
-        >
-          <span className="absolute bottom-1 right-1.5 text-[9px] font-bold uppercase leading-none text-white/70 [text-shadow:0_1px_1px_rgba(0,0,0,0.25)]">
-            {product.brand.charAt(0)}
-          </span>
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-card bg-chip">
+          <CategoryIcon category={product.category} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-ink">{product.name}</p>
+          <p className="truncate text-sm text-ink">
+            <span className="font-bold">{product.brand}</span>{" "}
+            <span className="font-normal text-textSecondary">{product.name}</span>
+          </p>
           <div className="flex min-w-0 items-baseline gap-1 text-xs text-textSecondary">
             <span className="truncate">{product.shade}</span>
             <span className="shrink-0 text-accent">· ${product.price}</span>
