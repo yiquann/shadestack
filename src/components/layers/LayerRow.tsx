@@ -4,7 +4,6 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { AppliedLayer, LookId } from "@/lib/tryon/session";
 import { useTryOnSession } from "@/lib/tryon/TryOnSessionContext";
-import { CATEGORY_LABELS } from "@/lib/catalog/types";
 
 type Props = {
   layer: AppliedLayer;
@@ -46,8 +45,11 @@ export function LayerRow({ layer, look }: Props) {
         }}
       />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-ink">{layer.product.name}</p>
-        <p className="truncate text-xs text-textMuted">{CATEGORY_LABELS[layer.category]}</p>
+        <p className="truncate text-sm text-ink">
+          <span className="font-bold">{layer.product.brand}</span>{" "}
+          <span className="font-normal text-textSecondary">{layer.product.name}</span>
+        </p>
+        <p className="truncate text-xs text-textMuted">{layer.product.shade}</p>
         <input
           type="range"
           min={0}
@@ -64,9 +66,41 @@ export function LayerRow({ layer, look }: Props) {
         aria-label={layer.visible ? "Hide layer" : "Show layer"}
         aria-pressed={layer.visible}
         data-testid={`toggle-visible-${layer.category}`}
-        className="shrink-0 rounded-full p-2 text-ink transition-colors duration-150 hover:bg-chip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="shrink-0 rounded-full p-2 text-textSecondary transition-colors duration-150 hover:bg-chip hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
-        {layer.visible ? "👁" : "🚫"}
+        {layer.visible ? (
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z" />
+            <circle cx="12" cy="12" r="2.5" />
+          </svg>
+        ) : (
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M3 3l18 18" />
+            <path d="M10.6 5.1A10.7 10.7 0 0 1 12 5c6.4 0 10 7 10 7a17.7 17.7 0 0 1-2.2 3.1" />
+            <path d="M6.6 6.6A17.2 17.2 0 0 0 2 12s3.6 7 10 7a10.4 10.4 0 0 0 4-.8" />
+            <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+          </svg>
+        )}
       </button>
       <button
         onClick={() => removeLayer(layer.category, look)}
