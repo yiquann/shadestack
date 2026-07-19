@@ -81,12 +81,6 @@ export function emptyLooks(): Looks {
   return { A: [], B: [] };
 }
 
-/** Entering split seeds Look B from Look A (deep copy) when B is empty. */
-export function withSplitEntered(looks: Looks): Looks {
-  if (looks.B.length > 0) return looks;
-  return { A: looks.A, B: looks.A.map((l) => ({ ...l })) };
-}
-
 function isLayerArray(v: unknown): v is AppliedLayer[] {
   return Array.isArray(v) && v.every((l) => l && typeof l === "object" && "category" in l);
 }

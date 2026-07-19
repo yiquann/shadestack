@@ -12,6 +12,7 @@ import { buildSkinMask } from "@/lib/segment/skinMask";
 import { buildHalfMask } from "@/lib/webgl/regionMask";
 import type { Point } from "@/lib/facemesh/polygon";
 import type { RenderLooks } from "./RenderCanvas";
+import { BeforeAfterOverlay } from "./BeforeAfterOverlay";
 
 const WIDTH = 500;
 const HEIGHT = 600;
@@ -37,8 +38,16 @@ export function CameraSource({ looks, facingMode }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dividerRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const looksRef = useRef(looks);
   const [fps, setFps] = useState(0);
+  // Before/after wipe position, 0–100% from the left edge of the preview.
+  const [comparePos, setComparePos] = useState(50);
+
+  // Single look with makeup applied → offer the before/after wipe (the raw
+  // <video> is "before", the composited canvas is "after"). Split view uses its
+  // own Look A / Look B divider instead.
+  const comparing = looks.mode === "single" && looks.layers.length > 0;
 
   // Keep the loop reading current looks without restarting on each edit.
   useEffect(() => {
@@ -146,9 +155,14 @@ export function CameraSource({ looks, facingMode }: Props) {
             const bottom = { x: cx, y: canvas.height };
             buildHalfMask(leftMask, top, bottom, "left", canvas.width, canvas.height);
             buildHalfMask(rightMask, top, bottom, "right", canvas.width, canvas.height);
+            // The canvas is displayed mirrored (scaleX(-1)), so a look drawn into
+            // the canvas's left half appears on the viewer's right. Draw Look A
+            // (rl.left) into the right-half mask and Look B (rl.right) into the
+            // left-half mask so that, after mirroring, the viewer sees Look A on
+            // the left and Look B on the right.
             glLayers = [
-              ...buildGlLayers(rl.left, lastPoints, canvas.width, canvas.height, clip, leftMask),
-              ...buildGlLayers(rl.right, lastPoints, canvas.width, canvas.height, clip, rightMask),
+              ...buildGlLayers(rl.left, lastPoints, canvas.width, canvas.height, clip, rightMask),
+              ...buildGlLayers(rl.right, lastPoints, canvas.width, canvas.height, clip, leftMask),
             ];
           }
         }
@@ -222,7 +236,11 @@ export function CameraSource({ looks, facingMode }: Props) {
 
   return (
     <div>
-      <div className="relative mx-auto aspect-[3/4] w-full max-w-[380px] overflow-hidden rounded-card bg-ink">
+      <div
+        ref={containerRef}
+        className="relative mx-auto aspect-[3/4] w-full max-w-[430px] overflow-hidden rounded-card bg-ink"
+      >
+        {/* "before": the raw camera feed */}
         <video
           ref={videoRef}
           autoPlay
@@ -231,18 +249,33 @@ export function CameraSource({ looks, facingMode }: Props) {
           className="h-full w-full object-cover"
           style={{ transform: "scaleX(-1)" }}
         />
-        <canvas
-          ref={canvasRef}
-          width={WIDTH}
-          height={HEIGHT}
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-          style={{ transform: "scaleX(-1)" }}
-        />
+        {/* "after": the composited canvas, clipped to the right of the wipe when
+            comparing. The wrapper is always present so the canvas ref is stable
+            across the render loop (never remounts when the wipe toggles). */}
+        <div
+          className="absolute inset-0"
+          style={comparing ? { clipPath: `inset(0 0 0 ${comparePos}%)` } : undefined}
+        >
+          <canvas
+            ref={canvasRef}
+            width={WIDTH}
+            height={HEIGHT}
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+            style={{ transform: "scaleX(-1)" }}
+          />
+        </div>
         <canvas
           ref={dividerRef}
           className="pointer-events-none absolute inset-0 h-full w-full"
           style={{ transform: "scaleX(-1)" }}
         />
+        {comparing && (
+          <BeforeAfterOverlay
+            containerRef={containerRef}
+            pos={comparePos}
+            setPos={setComparePos}
+          />
+        )}
         {SHOW_FPS && status === "ready" && (
           <span className="absolute left-2 top-2 rounded-pill bg-ink/60 px-2 py-1 text-[10px] font-semibold text-surface">
             {fps} fps

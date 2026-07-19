@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useFaceLandmarks } from "@/lib/facemesh/useFaceLandmarks";
 import { RenderCanvas, type RenderLooks } from "./RenderCanvas";
+import { BeforeAfterOverlay } from "./BeforeAfterOverlay";
 import { getImageSegmenter } from "@/lib/segment/imageSegmenter";
 import { buildSkinMask } from "@/lib/segment/skinMask";
 
@@ -84,6 +85,9 @@ function PhotoPreview({ url, looks }: { url: string; looks: RenderLooks }) {
   const [size, setSize] = useState({ width: MAX_WIDTH, height: MAX_HEIGHT });
   const state = useFaceLandmarks(imageRef, imageLoaded);
   const [skinMask, setSkinMask] = useState<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  // Before/after wipe position, 0–100% from the left edge of the preview.
+  const [comparePos, setComparePos] = useState(50);
 
   useEffect(() => {
     if (!imageLoaded || !imageEl) return;
@@ -122,10 +126,28 @@ function PhotoPreview({ url, looks }: { url: string; looks: RenderLooks }) {
     setImageEl(img);
   }
 
+  // The "after" (made-up) layer. RenderCanvas composites the makeup onto the
+  // same base image, so the underlying <img> is the "before".
+  const afterLayer =
+    state.status === "detected" && imageEl ? (
+      <RenderCanvas
+        image={imageEl}
+        points={state.points}
+        width={size.width}
+        height={size.height}
+        looks={looks}
+        clipMask={skinMask ?? undefined}
+      />
+    ) : null;
+  // Before/after only applies to a single look with makeup applied; split view
+  // uses its own Look A / Look B divider instead.
+  const comparing = looks.mode === "single" && looks.layers.length > 0;
+
   return (
     <div>
       <div
-        className="relative mx-auto w-full max-w-[380px] overflow-hidden rounded-card"
+        ref={containerRef}
+        className="relative mx-auto w-full max-w-[430px] overflow-hidden rounded-card"
         style={{ aspectRatio: `${size.width} / ${size.height}` }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -136,16 +158,26 @@ function PhotoPreview({ url, looks }: { url: string; looks: RenderLooks }) {
           onLoad={onImageLoad}
           className="h-full w-full object-cover"
         />
-        {state.status === "detected" && imageEl && (
-          <RenderCanvas
-            image={imageEl}
-            points={state.points}
-            width={size.width}
-            height={size.height}
-            looks={looks}
-            clipMask={skinMask ?? undefined}
-          />
-        )}
+        {afterLayer &&
+          (comparing ? (
+            <>
+              {/* Reveal the "after" only to the right of the wipe line; the
+                  original <img> shows through on the left. */}
+              <div
+                className="absolute inset-0"
+                style={{ clipPath: `inset(0 0 0 ${comparePos}%)` }}
+              >
+                {afterLayer}
+              </div>
+              <BeforeAfterOverlay
+                containerRef={containerRef}
+                pos={comparePos}
+                setPos={setComparePos}
+              />
+            </>
+          ) : (
+            afterLayer
+          ))}
       </div>
       {state.status === "loading" && (
         <p className="mt-2 text-center text-xs text-textMuted">Analyzing photo…</p>

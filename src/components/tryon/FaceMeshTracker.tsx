@@ -30,7 +30,7 @@ export function FaceMeshTracker({ looks }: Props) {
 
   return (
     <div>
-      <div className="relative mx-auto aspect-[5/6] w-full max-w-[380px] overflow-hidden rounded-card">
+      <div className="relative mx-auto aspect-[5/6] w-full max-w-[430px] overflow-hidden rounded-card">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           ref={imageRef}

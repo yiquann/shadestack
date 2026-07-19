@@ -2,15 +2,19 @@
 
 import { useState } from "react";
 import type { CatalogProduct } from "@/lib/catalog/types";
+import type { LookId } from "@/lib/tryon/session";
 import { ProductList } from "@/components/catalog/ProductList";
 import { searchProducts } from "@/components/catalog/filtering";
 import { ProductDetailSheet } from "@/components/detail/ProductDetailSheet";
 
 type Props = {
   products: CatalogProduct[];
+  // In single view, added products go to the active look (A or B). Ignored in
+  // split view, where each product card offers explicit +A / +B buttons.
+  activeLook?: LookId;
 };
 
-export function ProductSearchBar({ products }: Props) {
+export function ProductSearchBar({ products, activeLook }: Props) {
   const [query, setQuery] = useState("");
   const [dismissed, setDismissed] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
@@ -63,6 +67,7 @@ export function ProductSearchBar({ products }: Props) {
               products={results}
               onSelect={setSelectedProduct}
               tryOnAsLink={false}
+              look={activeLook}
             />
           </div>
         </>

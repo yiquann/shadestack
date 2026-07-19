@@ -7,7 +7,6 @@ import {
   moveLayer,
   clearLook,
   emptyLooks,
-  withSplitEntered,
   migrateStoredSession,
 } from "./session";
 import type { CatalogProduct } from "@/lib/catalog/types";
@@ -133,18 +132,6 @@ function fakeLayer(category: CatalogProduct["category"]) {
 describe("two-look model", () => {
   it("emptyLooks starts both looks empty", () => {
     expect(emptyLooks()).toEqual({ A: [], B: [] });
-  });
-
-  it("withSplitEntered copies A into B when B is empty (deep copy)", () => {
-    const a = [fakeLayer("LIPSTICK")];
-    const next = withSplitEntered({ A: a, B: [] });
-    expect(next.B).toEqual(a);
-    expect(next.B[0]).not.toBe(a[0]); // copied, not aliased
-  });
-
-  it("withSplitEntered leaves B untouched when it already has layers", () => {
-    const looks = { A: [fakeLayer("BLUSH")], B: [fakeLayer("LIPSTICK")] };
-    expect(withSplitEntered(looks)).toBe(looks);
   });
 
   it("migrateStoredSession upgrades a v1 bare-array payload into looks.A/single", () => {

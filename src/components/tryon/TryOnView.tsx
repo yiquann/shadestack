@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { CatalogProduct } from "@/lib/catalog/types";
+import type { LookId, ViewMode } from "@/lib/tryon/session";
 import { useTryOnSession } from "@/lib/tryon/TryOnSessionContext";
 import { ModeSourcePicker, type SourceMode } from "./ModeSourcePicker";
 import { FaceMeshTracker } from "./FaceMeshTracker";
@@ -22,15 +23,31 @@ export function TryOnView({ products }: Props) {
   const [swapped, setSwapped] = useState(false);
   const [divider, setDivider] = useState(true);
 
+  // Look B only exists once the user has added to it (via split). Until then,
+  // single view is just one "Look" and there's nothing to swap between.
+  const hasB = looks.B.length > 0;
+  // In single view the swap button flips the active (previewed/edited) look.
+  const activeLook: LookId = swapped ? "B" : "A";
+
   const left = swapped ? looks.B : looks.A;
   const right = swapped ? looks.A : looks.B;
   const renderLooks: RenderLooks =
     viewMode === "split"
       ? { mode: "split", left, right, divider }
-      : { mode: "single", layers: looks.A };
-  const hasLayers = viewMode === "split" ? looks.A.length > 0 || looks.B.length > 0 : looks.A.length > 0;
+      : { mode: "single", layers: looks[activeLook] };
+  const hasLayers =
+    viewMode === "split"
+      ? looks.A.length > 0 || looks.B.length > 0
+      : looks[activeLook].length > 0;
   const [mode, setMode] = useState<SourceMode>("model");
   const [facingMode, setFacingMode] = useState<FacingMode>("user");
+
+  // Switching view always resets to the unswapped default: single lands on
+  // Look A, split puts Look A on the left / Look B on the right.
+  function handleViewModeChange(next: ViewMode) {
+    setSwapped(false);
+    setViewMode(next);
+  }
 
   return (
     // Fixed to the viewport (minus the bottom nav) and non-scrolling; the two
@@ -61,7 +78,7 @@ export function TryOnView({ products }: Props) {
                     clearLook("A");
                     clearLook("B");
                   } else {
-                    clearLook("A");
+                    clearLook(activeLook);
                   }
                 }}
                 data-testid="clear-look-button"
@@ -84,11 +101,12 @@ export function TryOnView({ products }: Props) {
           <div className="w-full shrink-0">
             <SplitControls
               viewMode={viewMode}
-              onModeChange={setViewMode}
+              onModeChange={handleViewModeChange}
               swapped={swapped}
               onSwap={() => setSwapped((s) => !s)}
               divider={divider}
               onToggleDivider={() => setDivider((d) => !d)}
+              hasB={hasB}
             />
           </div>
         </div>
@@ -96,27 +114,47 @@ export function TryOnView({ products }: Props) {
         {/* Right: search-to-add bar + the Active Layers stack (fills the rest) */}
         <div className="flex min-h-0 flex-1 flex-col gap-3">
           <div className="shrink-0">
-            <ProductSearchBar products={products} />
+            <ProductSearchBar products={products} activeLook={activeLook} />
           </div>
-          {viewMode === "split" ? (
+          {viewMode === "split" || hasB ? (
+            // Split shows both looks editable. Single-with-B shows both too, but
+            // only the active look is editable; the other is disabled until the
+            // user swaps to it.
             <div className="flex min-h-0 flex-1 gap-3">
-              {(["A", "B"] as const).map((lk) => (
-                <div
-                  key={lk}
-                  className="flex min-h-0 flex-1 flex-col rounded-card border border-border p-3"
-                >
-                  <h3 className="shrink-0 text-[11px] font-bold uppercase tracking-[0.8px] text-textMuted">
-                    Look {lk}
-                  </h3>
-                  <div className="mt-2 min-h-0 flex-1 overflow-y-auto">
-                    <LayerPanel look={lk} />
+              {(["A", "B"] as const).map((lk) => {
+                const isDisabled = viewMode === "single" && lk !== activeLook;
+                return (
+                  <div
+                    key={lk}
+                    inert={isDisabled || undefined}
+                    aria-disabled={isDisabled}
+                    className={`flex min-h-0 flex-1 flex-col rounded-card border border-border p-3 ${
+                      isDisabled ? "opacity-50" : ""
+                    }`}
+                  >
+                    <h3 className="shrink-0 text-[11px] font-bold uppercase tracking-[0.8px] text-textMuted">
+                      Look {lk}
+                      {isDisabled && (
+                        <span className="ml-1 font-normal normal-case tracking-normal text-textFaint">
+                          · swap to edit
+                        </span>
+                      )}
+                    </h3>
+                    <div className="mt-2 min-h-0 flex-1 overflow-y-auto">
+                      <LayerPanel look={lk} />
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
-            <div className="min-h-0 flex-1 overflow-y-auto rounded-card border border-border p-3">
-              <LayerPanel look="A" />
+            <div className="flex min-h-0 flex-1 flex-col rounded-card border border-border p-3">
+              <h3 className="shrink-0 text-[11px] font-bold uppercase tracking-[0.8px] text-textMuted">
+                Look
+              </h3>
+              <div className="mt-2 min-h-0 flex-1 overflow-y-auto">
+                <LayerPanel look="A" />
+              </div>
             </div>
           )}
         </div>
