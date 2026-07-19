@@ -86,8 +86,6 @@ function PhotoPreview({ url, looks }: { url: string; looks: RenderLooks }) {
   const state = useFaceLandmarks(imageRef, imageLoaded);
   const [skinMask, setSkinMask] = useState<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  // Before/after wipe position, 0–100% from the left edge of the preview.
-  const [comparePos, setComparePos] = useState(50);
 
   useEffect(() => {
     if (!imageLoaded || !imageEl) return;
@@ -141,14 +139,23 @@ function PhotoPreview({ url, looks }: { url: string; looks: RenderLooks }) {
     ) : null;
   // Before/after only applies to a single look with makeup applied; split view
   // uses its own Look A / Look B divider instead.
-  const comparing = looks.mode === "single" && looks.layers.length > 0;
+  const comparing = looks.mode === "single" && looks.compare && looks.layers.length > 0;
 
   return (
     <div>
       <div
         ref={containerRef}
-        className="relative mx-auto w-full max-w-[430px] overflow-hidden rounded-card"
-        style={{ aspectRatio: `${size.width} / ${size.height}` }}
+        className="relative mx-auto overflow-hidden rounded-card"
+        style={{
+          aspectRatio: `${size.width} / ${size.height}`,
+          // Keep the preview inside the non-scrolling frame so the controls
+          // below it are never pushed off-screen. Cap the height (reserving
+          // room for the header + buttons) and derive the width from that cap,
+          // so a tall/large portrait photo scales down into the container
+          // instead of overflowing. Normal-height images still cap at 430px
+          // wide (or the column width), unchanged.
+          width: `min(100%, 430px, calc((100dvh - 22rem) * ${size.width} / ${size.height}))`,
+        }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -165,15 +172,11 @@ function PhotoPreview({ url, looks }: { url: string; looks: RenderLooks }) {
                   original <img> shows through on the left. */}
               <div
                 className="absolute inset-0"
-                style={{ clipPath: `inset(0 0 0 ${comparePos}%)` }}
+                style={{ clipPath: "inset(0 0 0 var(--wipe, 50%))" }}
               >
                 {afterLayer}
               </div>
-              <BeforeAfterOverlay
-                containerRef={containerRef}
-                pos={comparePos}
-                setPos={setComparePos}
-              />
+              <BeforeAfterOverlay targetRef={containerRef} />
             </>
           ) : (
             afterLayer

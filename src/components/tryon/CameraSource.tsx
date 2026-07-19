@@ -41,13 +41,11 @@ export function CameraSource({ looks, facingMode }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const looksRef = useRef(looks);
   const [fps, setFps] = useState(0);
-  // Before/after wipe position, 0–100% from the left edge of the preview.
-  const [comparePos, setComparePos] = useState(50);
 
   // Single look with makeup applied → offer the before/after wipe (the raw
   // <video> is "before", the composited canvas is "after"). Split view uses its
   // own Look A / Look B divider instead.
-  const comparing = looks.mode === "single" && looks.layers.length > 0;
+  const comparing = looks.mode === "single" && looks.compare && looks.layers.length > 0;
 
   // Keep the loop reading current looks without restarting on each edit.
   useEffect(() => {
@@ -254,7 +252,7 @@ export function CameraSource({ looks, facingMode }: Props) {
             across the render loop (never remounts when the wipe toggles). */}
         <div
           className="absolute inset-0"
-          style={comparing ? { clipPath: `inset(0 0 0 ${comparePos}%)` } : undefined}
+          style={comparing ? { clipPath: "inset(0 0 0 var(--wipe, 50%))" } : undefined}
         >
           <canvas
             ref={canvasRef}
@@ -269,13 +267,7 @@ export function CameraSource({ looks, facingMode }: Props) {
           className="pointer-events-none absolute inset-0 h-full w-full"
           style={{ transform: "scaleX(-1)" }}
         />
-        {comparing && (
-          <BeforeAfterOverlay
-            containerRef={containerRef}
-            pos={comparePos}
-            setPos={setComparePos}
-          />
-        )}
+        {comparing && <BeforeAfterOverlay targetRef={containerRef} />}
         {SHOW_FPS && status === "ready" && (
           <span className="absolute left-2 top-2 rounded-pill bg-ink/60 px-2 py-1 text-[10px] font-semibold text-surface">
             {fps} fps

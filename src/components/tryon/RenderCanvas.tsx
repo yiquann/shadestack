@@ -9,7 +9,7 @@ import { buildHalfMask } from "@/lib/webgl/regionMask";
 import type { AppliedLayer } from "@/lib/tryon/session";
 
 export type RenderLooks =
-  | { mode: "single"; layers: AppliedLayer[] }
+  | { mode: "single"; layers: AppliedLayer[]; compare: boolean }
   | { mode: "split"; left: AppliedLayer[]; right: AppliedLayer[]; divider: boolean };
 
 type Props = {

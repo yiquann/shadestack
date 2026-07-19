@@ -11,8 +11,11 @@ import { CameraSource } from "./CameraSource";
 import type { RenderLooks } from "./RenderCanvas";
 import { LayerPanel } from "@/components/layers/LayerPanel";
 import { ProductSearchBar } from "./ProductSearchBar";
-import { nextFacingMode, type FacingMode } from "@/lib/facemesh/cameraHelpers";
+import type { FacingMode } from "@/lib/facemesh/cameraHelpers";
 import { SplitControls } from "./SplitControls";
+
+const ICON_BTN =
+  "flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
 type Props = {
   products: CatalogProduct[];
@@ -21,7 +24,10 @@ type Props = {
 export function TryOnView({ products }: Props) {
   const { looks, clearLook, mode: viewMode, setMode: setViewMode } = useTryOnSession();
   const [swapped, setSwapped] = useState(false);
+  // Split-view divider line (on by default). Separate from the single-view
+  // before/after comparison, which is opt-in.
   const [divider, setDivider] = useState(true);
+  const [compare, setCompare] = useState(false);
 
   // Look B only exists once the user has added to it (via split). Until then,
   // single view is just one "Look" and there's nothing to swap between.
@@ -34,13 +40,13 @@ export function TryOnView({ products }: Props) {
   const renderLooks: RenderLooks =
     viewMode === "split"
       ? { mode: "split", left, right, divider }
-      : { mode: "single", layers: looks[activeLook] };
+      : { mode: "single", layers: looks[activeLook], compare };
   const hasLayers =
     viewMode === "split"
       ? looks.A.length > 0 || looks.B.length > 0
       : looks[activeLook].length > 0;
   const [mode, setMode] = useState<SourceMode>("model");
-  const [facingMode, setFacingMode] = useState<FacingMode>("user");
+  const facingMode: FacingMode = "user";
 
   // Switching view always resets to the unswapped default: single lands on
   // Look A, split puts Look A on the left / Look B on the right.
@@ -87,13 +93,60 @@ export function TryOnView({ products }: Props) {
                 Clear Look
               </button>
             )}
-            {mode === "camera" && (
+            {(viewMode === "split" || (viewMode === "single" && hasB)) && (
               <button
                 type="button"
-                onClick={() => setFacingMode(nextFacingMode)}
-                className="rounded-pill bg-chip px-4 py-2 text-xs font-semibold text-textSecondary transition-colors duration-150 hover:bg-chip-hover hover:text-ink"
+                onClick={() => setSwapped((s) => !s)}
+                aria-label={viewMode === "split" ? "Swap sides" : "Swap look"}
+                title="Swap"
+                className={`${ICON_BTN} bg-chip text-textSecondary hover:bg-chip-hover hover:text-ink`}
               >
-                Flip camera
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M4 9h12M16 9l-3-3M16 9l-3 3M20 15H8M8 15l3-3M8 15l3 3" />
+                </svg>
+              </button>
+            )}
+            {(viewMode === "split" || (viewMode === "single" && hasLayers)) && (
+              <button
+                type="button"
+                onClick={() =>
+                  viewMode === "split"
+                    ? setDivider((d) => !d)
+                    : setCompare((c) => !c)
+                }
+                aria-pressed={viewMode === "split" ? divider : compare}
+                aria-label={viewMode === "split" ? "Toggle divider" : "Toggle before and after"}
+                title={viewMode === "split" ? "Divider" : "Before / after"}
+                className={`${ICON_BTN} ${
+                  (viewMode === "split" ? divider : compare)
+                    ? "bg-ink text-surface"
+                    : "bg-chip text-textSecondary hover:bg-chip-hover hover:text-ink"
+                }`}
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <rect x="4" y="5" width="16" height="14" rx="2" />
+                  <path d="M12 5v14" />
+                </svg>
               </button>
             )}
           </div>
@@ -103,9 +156,6 @@ export function TryOnView({ products }: Props) {
               viewMode={viewMode}
               onModeChange={handleViewModeChange}
               swapped={swapped}
-              onSwap={() => setSwapped((s) => !s)}
-              divider={divider}
-              onToggleDivider={() => setDivider((d) => !d)}
               hasB={hasB}
             />
           </div>
