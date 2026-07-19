@@ -37,7 +37,11 @@ export type SmoothLayer = {
 export type Layer = TintLayer | SmoothLayer;
 
 export type CompositeRenderer = {
-  render(source: TexImageSource, layers: Layer[]): void;
+  // `rebuildMasks` (default true): when false, the per-layer feathered masks are
+  // reused from the previous call (the pooled mask textures are not re-rasterized
+  // or re-uploaded) — for a video loop where the landmarks/masks are unchanged
+  // between detections but the source frame still updates every frame.
+  render(source: TexImageSource, layers: Layer[], rebuildMasks?: boolean): void;
   dispose(): void;
 };
 
@@ -74,9 +78,43 @@ function configureTexture(gl: WebGLRenderingContext, tex: WebGLTexture): void {
  * and per-layer masks each call. Suitable for a 30+ fps video loop as well as
  * one-shot static renders.
  */
+// Renderers are cached per canvas so a still-live context can be reused instead
+// of allocating a second one on the same element. React Strict Mode (dev)
+// double-invokes effects — setup → cleanup → setup — on the same canvas, and an
+// effect re-run does too; the cleanup's `dispose` defers the actual teardown to
+// a microtask that the immediate re-setup cancels. A genuine unmount (no
+// re-setup follows) still releases the context promptly. Releasing matters:
+// GPU-context-starved drivers (notably Firefox/ANGLE) have a small context
+// budget, and leaked contexts that only await GC exhaust it — after which even
+// the first new `getContext` hard-fails ("Exhausted GL driver options").
+const rendererCache = new WeakMap<HTMLCanvasElement, CompositeRenderer>();
+const cancelPendingRelease = new WeakMap<HTMLCanvasElement, () => void>();
+
 export function createCompositeRenderer(canvas: HTMLCanvasElement): CompositeRenderer {
+  // Reclaim a renderer whose teardown is merely pending (Strict-Mode remount or
+  // same-canvas effect re-run) rather than creating a second context.
+  const pooled = rendererCache.get(canvas);
+  if (pooled) {
+    cancelPendingRelease.get(canvas)?.();
+    cancelPendingRelease.delete(canvas);
+    return pooled;
+  }
+
+  // Capture the browser's reason for a failed creation (fired on the canvas as
+  // a `webglcontextcreationerror`) so the thrown error names the real cause —
+  // typically driver/context exhaustion — instead of a generic "not supported".
+  let creationError = "";
+  const onCreationError = (e: Event) => {
+    creationError = (e as WebGLContextEvent).statusMessage || "";
+  };
+  canvas.addEventListener("webglcontextcreationerror", onCreationError, { once: true });
   const glOrNull = canvas.getContext("webgl", { preserveDrawingBuffer: true });
-  if (!glOrNull) throw new Error("WebGL is not supported in this browser");
+  canvas.removeEventListener("webglcontextcreationerror", onCreationError);
+  if (!glOrNull) {
+    throw new Error(
+      `WebGL context creation failed${creationError ? `: ${creationError}` : ""}`
+    );
+  }
   // Re-bind to a definitely-non-null const: TS narrowing on `glOrNull` does
   // not propagate into the nested closures below (bindQuad, maskTextureAt,
   // render, dispose), since they could in principle run at any later time.
@@ -144,13 +182,14 @@ export function createCompositeRenderer(canvas: HTMLCanvasElement): CompositeRen
     return tex;
   }
 
-  function render(source: TexImageSource, layers: Layer[]): void {
+  function render(source: TexImageSource, layers: Layer[], rebuildMasks = true): void {
     const { width, height } = canvas;
     gl.viewport(0, 0, width, height);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    // Base image pass.
+    // Base image pass — always re-uploaded so a live video source stays current
+    // even on frames where the masks are reused.
     gl.disable(gl.BLEND);
     gl.useProgram(imageProgram);
     bindQuad(imageLoc.position, imageLoc.texCoord);
@@ -164,19 +203,24 @@ export function createCompositeRenderer(canvas: HTMLCanvasElement): CompositeRen
     //   multiply -> (DST_COLOR, ONE_MINUS_SRC_ALPHA); screen -> (ONE, ONE_MINUS_SRC_COLOR)
     //   smooth (skin blur "over") -> (ONE, ONE_MINUS_SRC_ALPHA)
     //   alpha factors (ZERO, ONE) preserve the opaque base alpha.
+    // The feathered mask is re-rasterized and re-uploaded only when rebuildMasks
+    // is set; otherwise the pooled mask texture from the previous frame is reused
+    // (the mask depends on landmarks, not on the per-frame source).
     gl.enable(gl.BLEND);
     layers.forEach((layer, i) => {
       const maskTexture = maskTextureAt(i);
-      drawMask(
-        maskScratch,
-        layer.polygon,
-        width,
-        height,
-        layer.featherPx,
-        layer.kind === "smooth" ? layer.holes : undefined,
-        layer.clipMask,
-        layer.regionClip
-      );
+      if (rebuildMasks) {
+        drawMask(
+          maskScratch,
+          layer.polygon,
+          width,
+          height,
+          layer.featherPx,
+          layer.kind === "smooth" ? layer.holes : undefined,
+          layer.clipMask,
+          layer.regionClip
+        );
+      }
 
       if (layer.kind === "smooth") {
         gl.useProgram(smoothProgram);
@@ -187,7 +231,9 @@ export function createCompositeRenderer(canvas: HTMLCanvasElement): CompositeRen
         gl.uniform1i(smoothLoc.uImage, 0);
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, maskTexture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, maskScratch);
+        if (rebuildMasks) {
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, maskScratch);
+        }
         gl.uniform1i(smoothLoc.uMask, 1);
         gl.uniform1f(smoothLoc.uStrength, layer.strength);
         gl.uniform2f(smoothLoc.uTexel, 1 / width, 1 / height);
@@ -209,7 +255,9 @@ export function createCompositeRenderer(canvas: HTMLCanvasElement): CompositeRen
       }
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, maskTexture);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, maskScratch);
+      if (rebuildMasks) {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, maskScratch);
+      }
       gl.uniform1i(tintLoc.uMask, 0);
       gl.uniform3fv(tintLoc.uTintColor, layer.tintColor);
       gl.uniform1f(tintLoc.uOpacity, layer.opacity);
@@ -217,14 +265,36 @@ export function createCompositeRenderer(canvas: HTMLCanvasElement): CompositeRen
     });
   }
 
-  function dispose(): void {
+  function releaseNow(): void {
     for (const tex of maskPool) gl.deleteTexture(tex);
     gl.deleteTexture(imageTexture);
     gl.deleteBuffer(quadBuffer);
     gl.deleteProgram(imageProgram);
     gl.deleteProgram(tintProgram);
     gl.deleteProgram(smoothProgram);
+    rendererCache.delete(canvas);
+    // Hand the context back to the driver immediately instead of waiting for the
+    // detached canvas to be garbage-collected — otherwise leaked contexts pile
+    // up and exhaust a small driver context budget.
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
   }
 
-  return { render, dispose };
+  function dispose(): void {
+    // Defer teardown: a synchronous re-setup on the same canvas (Strict Mode, or
+    // an effect re-run) reclaims this renderer via `createCompositeRenderer` and
+    // cancels the release below, so the context survives that churn but is freed
+    // on a real unmount (when no re-setup follows before the microtask runs).
+    let cancelled = false;
+    cancelPendingRelease.set(canvas, () => {
+      cancelled = true;
+    });
+    queueMicrotask(() => {
+      cancelPendingRelease.delete(canvas);
+      if (!cancelled) releaseNow();
+    });
+  }
+
+  const renderer: CompositeRenderer = { render, dispose };
+  rendererCache.set(canvas, renderer);
+  return renderer;
 }

@@ -9,7 +9,16 @@ let landmarkerPromise: Promise<FaceLandmarker> | null = null;
 async function create(runningMode: "IMAGE" | "VIDEO"): Promise<FaceLandmarker> {
   const vision = await FilesetResolver.forVisionTasks(WASM_PATH);
   return FaceLandmarker.createFromOptions(vision, {
-    baseOptions: { modelAssetPath: MODEL_PATH, delegate: "GPU" },
+    baseOptions: {
+      modelAssetPath: MODEL_PATH,
+      // IMAGE mode is a one-shot detect (Photo/Model) — run it on the CPU
+      // delegate so it never competes for, or gets evicted from, the shared
+      // WebGL context pool that the live camera loop + compositor hold on the
+      // GPU. GPU-context eviction was intermittently making a valid selfie
+      // return zero faces ("no face detected"). VIDEO mode (the per-frame
+      // camera loop) stays on GPU for speed.
+      delegate: runningMode === "VIDEO" ? "GPU" : "CPU",
+    },
     runningMode,
     numFaces: 1,
   });

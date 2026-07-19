@@ -11,8 +11,17 @@ import { createVideoSegmenter } from "@/lib/segment/imageSegmenter";
 import { buildSkinMask } from "@/lib/segment/skinMask";
 import { buildHalfMask } from "@/lib/webgl/regionMask";
 import type { Point } from "@/lib/facemesh/polygon";
+import type { AppliedLayer } from "@/lib/tryon/session";
 import type { RenderLooks } from "./RenderCanvas";
 import { BeforeAfterOverlay } from "./BeforeAfterOverlay";
+
+// Segmentation (a second GPU model + a CPU readback) only feeds foundation's
+// skin clip. When no foundation is applied it's pure waste, so skip it.
+function looksNeedSkinMask(rl: RenderLooks): boolean {
+  const has = (ls: AppliedLayer[]) =>
+    ls.some((l) => l.visible && l.category === "FOUNDATION");
+  return rl.mode === "single" ? has(rl.layers) : has(rl.left) || has(rl.right);
+}
 
 const WIDTH = 500;
 const HEIGHT = 600;
@@ -26,7 +35,12 @@ const MAX_RENDER_EDGE = 900;
 // Segmentation is a second per-frame model; run it every Nth frame and reuse
 // the last skin mask between runs to protect the frame budget.
 const SEGMENT_INTERVAL = 4;
-const SHOW_FPS = process.env.NODE_ENV !== "production";
+// Dev shows the FPS badge automatically; in a production build, opt in with a
+// `?fps=1` query param so the true (non-dev) frame rate can be measured.
+const SHOW_FPS =
+  process.env.NODE_ENV !== "production" ||
+  (typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).has("fps"));
 
 type Props = {
   looks: RenderLooks;
@@ -75,6 +89,15 @@ export function CameraSource({ looks, facingMode }: Props) {
     let vfcId = 0;
     let frameCount = 0;
     let lastPoints: Point[] | null = null;
+    // Mask caching: the feathered masks depend only on landmarks (+ look/size),
+    // which change at most every detection frame. Track the last inputs so we
+    // rebuild the masks only when they actually change and reuse them (and the
+    // built GL layers) otherwise, while the video base still redraws every frame.
+    let prevPoints: Point[] | null = null;
+    let prevLooks: RenderLooks | null = null;
+    let prevW = 0;
+    let prevH = 0;
+    let cachedGlLayers: Layer[] = [];
     let avgFrameMs = 1000 / 60;
     let lastTs = performance.now();
     let fpsAccum = 0;
@@ -121,13 +144,22 @@ export function CameraSource({ looks, facingMode }: Props) {
           canvas.width = targetW;
           canvas.height = targetH;
         }
-        const interval = detectionInterval(avgFrameMs);
+        const rl = looksRef.current;
+        // When the before/after compare is on, the extra compositing tightens
+        // the frame budget; detect and segment less often so the render loop
+        // stays in step with the live video and the seam doesn't judder.
+        const comparingNow =
+          rl.mode === "single" && rl.compare && rl.layers.length > 0;
+        const interval = comparingNow
+          ? Math.max(2, detectionInterval(avgFrameMs))
+          : detectionInterval(avgFrameMs);
         if (frameCount % interval === 0) {
           const result = landmarker.detectForVideo(video, now);
           const face = result.faceLandmarks[0];
           lastPoints = face && face.length > 0 ? face.map((p) => ({ x: p.x, y: p.y })) : null;
         }
-        if (segmenter && frameCount % SEGMENT_INTERVAL === 0) {
+        const segInterval = comparingNow ? SEGMENT_INTERVAL * 2 : SEGMENT_INTERVAL;
+        if (segmenter && looksNeedSkinMask(rl) && frameCount % segInterval === 0) {
           segmenter.segmentForVideo(video, now, (result) => {
             const mask = result.categoryMask;
             if (!mask) return;
@@ -139,32 +171,45 @@ export function CameraSource({ looks, facingMode }: Props) {
             }
           });
         }
-        const rl = looksRef.current;
         const clip = skinReady ? skinCanvas : undefined;
-        let glLayers: Layer[] = [];
-        if (lastPoints) {
-          if (rl.mode === "single") {
-            glLayers = buildGlLayers(rl.layers, lastPoints, canvas.width, canvas.height, clip);
-          } else {
-            // The camera split is a fixed vertical line down the middle of the
-            // frame — it does not tilt or follow the face (unlike photo/model).
-            const cx = canvas.width / 2;
-            const top = { x: cx, y: 0 };
-            const bottom = { x: cx, y: canvas.height };
-            buildHalfMask(leftMask, top, bottom, "left", canvas.width, canvas.height);
-            buildHalfMask(rightMask, top, bottom, "right", canvas.width, canvas.height);
-            // The canvas is displayed mirrored (scaleX(-1)), so a look drawn into
-            // the canvas's left half appears on the viewer's right. Draw Look A
-            // (rl.left) into the right-half mask and Look B (rl.right) into the
-            // left-half mask so that, after mirroring, the viewer sees Look A on
-            // the left and Look B on the right.
-            glLayers = [
-              ...buildGlLayers(rl.left, lastPoints, canvas.width, canvas.height, clip, rightMask),
-              ...buildGlLayers(rl.right, lastPoints, canvas.width, canvas.height, clip, leftMask),
-            ];
+        // Rebuild the masks only when their inputs changed since the last frame:
+        // new landmarks (a fresh detection), an edited look, or a resized canvas.
+        const rebuildMasks =
+          lastPoints !== prevPoints ||
+          rl !== prevLooks ||
+          canvas.width !== prevW ||
+          canvas.height !== prevH;
+        prevPoints = lastPoints;
+        prevLooks = rl;
+        prevW = canvas.width;
+        prevH = canvas.height;
+        if (rebuildMasks) {
+          let glLayers: Layer[] = [];
+          if (lastPoints) {
+            if (rl.mode === "single") {
+              glLayers = buildGlLayers(rl.layers, lastPoints, canvas.width, canvas.height, clip);
+            } else {
+              // The camera split is a fixed vertical line down the middle of the
+              // frame — it does not tilt or follow the face (unlike photo/model).
+              const cx = canvas.width / 2;
+              const top = { x: cx, y: 0 };
+              const bottom = { x: cx, y: canvas.height };
+              buildHalfMask(leftMask, top, bottom, "left", canvas.width, canvas.height);
+              buildHalfMask(rightMask, top, bottom, "right", canvas.width, canvas.height);
+              // The canvas is displayed mirrored (scaleX(-1)), so a look drawn
+              // into the canvas's left half appears on the viewer's right. Draw
+              // Look A (rl.left) into the right-half mask and Look B (rl.right)
+              // into the left-half mask so that, after mirroring, the viewer sees
+              // Look A on the left and Look B on the right.
+              glLayers = [
+                ...buildGlLayers(rl.left, lastPoints, canvas.width, canvas.height, clip, rightMask),
+                ...buildGlLayers(rl.right, lastPoints, canvas.width, canvas.height, clip, leftMask),
+              ];
+            }
           }
+          cachedGlLayers = glLayers;
         }
-        renderer.render(video, glLayers);
+        renderer.render(video, cachedGlLayers, rebuildMasks);
 
         if (divider) {
           if (divider.width !== canvas.width) divider.width = canvas.width;

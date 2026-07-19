@@ -22,13 +22,37 @@ export function useCameraStream(facingMode: FacingMode): CameraState {
 
     async function start() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          // Hint a modest resolution: detectForVideo processes at the native
-          // frame size, so requesting 720p rather than accepting 1080p+ trims
-          // per-frame tracking cost. `ideal` degrades gracefully if unsupported.
-          video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false,
-        });
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            // Hint a modest resolution: detectForVideo processes at the native
+            // frame size, so requesting 720p rather than accepting 1080p+ trims
+            // per-frame tracking cost. Request 60fps so the render loop (bound to
+            // the camera's delivered frame rate via requestVideoFrameCallback)
+            // can run at 60 on capable hardware. All `ideal` — degrade gracefully.
+            video: {
+              facingMode,
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              frameRate: { ideal: 60 },
+            },
+            audio: false,
+          });
+        } catch (constraintErr) {
+          // An all-`ideal` set shouldn't reject per spec, but some drivers do.
+          // Permission denial is terminal; anything else, retry with the barest
+          // constraints so a fussy device still yields a camera.
+          if (
+            constraintErr instanceof DOMException &&
+            constraintErr.name === "NotAllowedError"
+          ) {
+            throw constraintErr;
+          }
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode },
+            audio: false,
+          });
+        }
         if (!active) {
           stream.getTracks().forEach((t) => t.stop());
           return;

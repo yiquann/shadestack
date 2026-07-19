@@ -11,9 +11,13 @@ describe("nextFacingMode", () => {
 });
 
 describe("detectionInterval", () => {
-  it("detects every frame when comfortably at/above 30fps", () => {
-    expect(detectionInterval(1000 / 60)).toBe(1);
+  it("detects every frame in the ~30-45fps band", () => {
     expect(detectionInterval(1000 / 30)).toBe(1);
+    expect(detectionInterval(1000 / 40)).toBe(1);
+  });
+  it("detects every other frame above ~45fps so the draw loop can reach 60", () => {
+    expect(detectionInterval(1000 / 60)).toBe(2);
+    expect(detectionInterval(1000 / 50)).toBe(2);
   });
   it("halves detection cadence when between 24 and 30fps", () => {
     expect(detectionInterval(1000 / 27)).toBe(2);
