@@ -281,7 +281,16 @@ export function CameraSource({ looks, facingMode }: Props) {
     <div>
       <div
         ref={containerRef}
-        className="relative mx-auto aspect-[3/4] w-full max-w-[430px] overflow-hidden rounded-card bg-ink"
+        className="relative mx-auto overflow-hidden rounded-card bg-ink [--preview-reserve:22rem] md:[--preview-reserve:15rem]"
+        style={{
+          aspectRatio: "3 / 4",
+          // Width comes from the column (≈1/3 of the screen on desktop via
+          // TryOnView's md:w-[34%]; full width on mobile) but is capped by the
+          // available height so the aspect-locked preview never overflows the
+          // non-scrolling frame. The height reserve is larger on mobile — taller
+          // header/controls and a full-width preview leave less vertical room.
+          width: "min(100%, calc((100dvh - var(--preview-reserve)) * 3 / 4))",
+        }}
       >
         {/* "before": the raw camera feed */}
         <video

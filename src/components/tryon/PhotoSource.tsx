@@ -145,16 +145,16 @@ function PhotoPreview({ url, looks }: { url: string; looks: RenderLooks }) {
     <div>
       <div
         ref={containerRef}
-        className="relative mx-auto overflow-hidden rounded-card"
+        className="relative mx-auto overflow-hidden rounded-card [--preview-reserve:22rem] md:[--preview-reserve:15rem]"
         style={{
           aspectRatio: `${size.width} / ${size.height}`,
           // Keep the preview inside the non-scrolling frame so the controls
           // below it are never pushed off-screen. Cap the height (reserving
-          // room for the header + buttons) and derive the width from that cap,
-          // so a tall/large portrait photo scales down into the container
-          // instead of overflowing. Normal-height images still cap at 430px
-          // wide (or the column width), unchanged.
-          width: `min(100%, 430px, calc((100dvh - 22rem) * ${size.width} / ${size.height}))`,
+          // room for the header + buttons — more on mobile) and derive the width
+          // from that cap, so a tall/large portrait photo scales down into the
+          // container instead of overflowing. Width otherwise fills the column
+          // (≈1/3 of the screen on desktop, full width on mobile).
+          width: `min(100%, calc((100dvh - var(--preview-reserve)) * ${size.width} / ${size.height}))`,
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
