@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { CatalogProduct } from "@/lib/catalog/types";
 import type { LookId, ViewMode } from "@/lib/tryon/session";
 import { useTryOnSession } from "@/lib/tryon/TryOnSessionContext";
-import { ModeSourcePicker, type SourceMode } from "./ModeSourcePicker";
+import { ModeSourcePicker } from "./ModeSourcePicker";
 import { FaceMeshTracker } from "./FaceMeshTracker";
 import { PhotoSource } from "./PhotoSource";
 import { CameraSource } from "./CameraSource";
@@ -24,7 +24,8 @@ type Props = {
 };
 
 export function TryOnView({ products }: Props) {
-  const { looks, clearLook, mode: viewMode, setMode: setViewMode } = useTryOnSession();
+  const { looks, clearLook, mode: viewMode, setMode: setViewMode, source, setSource } =
+    useTryOnSession();
   const { saveLook } = useSaved();
   const [showSaveSheet, setShowSaveSheet] = useState(false);
   const [swapped, setSwapped] = useState(false);
@@ -35,6 +36,7 @@ export function TryOnView({ products }: Props) {
 
   // Look B only exists once the user has added to it (via split). Until then,
   // single view is just one "Look" and there's nothing to swap between.
+  const hasA = looks.A.length > 0;
   const hasB = looks.B.length > 0;
   // In single view the swap button flips the active (previewed/edited) look.
   const activeLook: LookId = swapped ? "B" : "A";
@@ -49,7 +51,6 @@ export function TryOnView({ products }: Props) {
     viewMode === "split"
       ? looks.A.length > 0 || looks.B.length > 0
       : looks[activeLook].length > 0;
-  const [mode, setMode] = useState<SourceMode>("model");
   const facingMode: FacingMode = "user";
 
   // Switching view always resets to the unswapped default: single lands on
@@ -66,17 +67,17 @@ export function TryOnView({ products }: Props) {
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-2xl text-ink">Try On</h1>
         <div className="w-full sm:w-auto sm:min-w-[260px]">
-          <ModeSourcePicker active={mode} onChange={setMode} />
+          <ModeSourcePicker active={source} onChange={setSource} />
         </div>
       </div>
 
       <div className="mt-4 flex min-h-0 flex-1 flex-col gap-4 md:flex-row">
         {/* Left: face preview + controls */}
-        <div className="flex min-h-0 flex-col items-center gap-3 md:w-[45%]">
+        <div className="flex min-h-0 flex-col items-center gap-3 md:w-[34%]">
           <div className="w-full shrink-0">
-            {mode === "model" && <FaceMeshTracker looks={renderLooks} />}
-            {mode === "photo" && <PhotoSource looks={renderLooks} />}
-            {mode === "camera" && <CameraSource looks={renderLooks} facingMode={facingMode} />}
+            {source === "model" && <FaceMeshTracker looks={renderLooks} />}
+            {source === "photo" && <PhotoSource looks={renderLooks} />}
+            {source === "camera" && <CameraSource looks={renderLooks} facingMode={facingMode} />}
           </div>
 
           <div className="flex shrink-0 items-center justify-center gap-2">
@@ -225,9 +226,12 @@ export function TryOnView({ products }: Props) {
 
       {showSaveSheet && (
         <SaveLookSheet
+          hasA={hasA}
+          hasB={hasB}
+          defaultLook={activeLook}
           onClose={() => setShowSaveSheet(false)}
-          onSave={(name) => {
-            saveLook(name, looks[activeLook]);
+          onSave={(choices) => {
+            choices.forEach((c) => saveLook(c.name, looks[c.look]));
             setShowSaveSheet(false);
           }}
         />

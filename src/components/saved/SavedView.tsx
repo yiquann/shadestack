@@ -25,13 +25,15 @@ function EmptyState({ text }: { text: string }) {
 
 export function SavedView() {
   const { products, looks, deleteLook } = useSaved();
-  const { replaceLook, setMode } = useTryOnSession();
+  const { replaceLook, setMode, setSource } = useTryOnSession();
   const router = useRouter();
   const [selected, setSelected] = useState<CatalogProduct | null>(null);
 
   function applyLook(look: SavedLook) {
     replaceLook("A", look.layers);
     setMode("single");
+    // Open Try On on the live camera so the look previews on the user's face.
+    setSource("camera");
     router.push("/try-on");
   }
 

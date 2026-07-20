@@ -75,6 +75,8 @@ export function clearLook(): AppliedLayer[] {
 export type LookId = "A" | "B";
 export type Looks = Record<LookId, AppliedLayer[]>;
 export type ViewMode = "single" | "split";
+/** Which face preview backs the try-on: illustrated model, uploaded photo, or live camera. */
+export type SourceMode = "model" | "photo" | "camera";
 export type StoredSession = { looks: Looks; mode: ViewMode };
 
 export function emptyLooks(): Looks {

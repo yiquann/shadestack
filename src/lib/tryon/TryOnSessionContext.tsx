@@ -15,6 +15,7 @@ import {
   type Looks,
   type LookId,
   type ViewMode,
+  type SourceMode,
   type StoredSession,
 } from "./session";
 
@@ -23,6 +24,11 @@ const STORAGE_KEY = "shadestack.tryon.session.v2";
 type TryOnSessionValue = {
   looks: Looks;
   mode: ViewMode;
+  // The active face preview. Kept in-memory (not persisted) so a fresh reload
+  // always defaults to Model — no surprise camera prompt — while it still
+  // carries across in-app navigation (e.g. Saved → Try On opens on Camera).
+  source: SourceMode;
+  setSource: (source: SourceMode) => void;
   addProduct: (product: CatalogProduct, look: LookId) => void;
   removeLayer: (category: CatalogProduct["category"], look: LookId) => void;
   setOpacity: (category: CatalogProduct["category"], opacity: number, look: LookId) => void;
@@ -37,6 +43,9 @@ const TryOnSessionContext = createContext<TryOnSessionValue | null>(null);
 
 export function TryOnSessionProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<StoredSession>({ looks: emptyLooks(), mode: "single" });
+  // Non-persisted (see `source` in the context value) — deliberately excluded
+  // from the localStorage `state` above.
+  const [source, setSource] = useState<SourceMode>("model");
 
   // The provider is server-rendered (no "use client" boundary above it in
   // (tabs)/layout.tsx), so the first client render must match the empty-looks
@@ -77,6 +86,8 @@ export function TryOnSessionProvider({ children }: { children: ReactNode }) {
     return {
       looks: state.looks,
       mode: state.mode,
+      source,
+      setSource,
       addProduct: (product, look) => mutate(look, (l) => applyProduct(l, product)),
       removeLayer: (category, look) => mutate(look, (l) => removeLayerFn(l, category)),
       setOpacity: (category, opacity, look) => mutate(look, (l) => setOpacityFn(l, category, opacity)),
@@ -90,7 +101,7 @@ export function TryOnSessionProvider({ children }: { children: ReactNode }) {
       // it is not seeded from Look A.
       setMode: (mode) => setState((s) => ({ ...s, mode })),
     };
-  }, [state]);
+  }, [state, source]);
 
   return <TryOnSessionContext.Provider value={value}>{children}</TryOnSessionContext.Provider>;
 }

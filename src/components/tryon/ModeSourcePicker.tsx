@@ -1,4 +1,6 @@
-export type SourceMode = "model" | "photo" | "camera";
+import type { SourceMode } from "@/lib/tryon/session";
+
+export type { SourceMode };
 
 const MODES: { id: SourceMode; label: string }[] = [
   { id: "model", label: "Model" },
