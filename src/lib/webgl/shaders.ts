@@ -33,6 +33,30 @@ void main() {
 }
 `;
 
+export const SMOOTH_FRAGMENT_SHADER = `
+precision mediump float;
+varying vec2 vTexCoord;
+uniform sampler2D uImage;
+uniform sampler2D uMask;
+uniform float uStrength;
+uniform vec2 uTexel;   // (1/canvasWidth, 1/canvasHeight)
+uniform float uRadius; // blur offset in pixels
+void main() {
+  float a = texture2D(uMask, vTexCoord).a * uStrength;
+  vec2 o = uTexel * uRadius;
+  vec3 c = texture2D(uImage, vTexCoord).rgb * 0.25;
+  c += texture2D(uImage, vTexCoord + vec2( o.x, 0.0)).rgb * 0.125;
+  c += texture2D(uImage, vTexCoord + vec2(-o.x, 0.0)).rgb * 0.125;
+  c += texture2D(uImage, vTexCoord + vec2(0.0,  o.y)).rgb * 0.125;
+  c += texture2D(uImage, vTexCoord + vec2(0.0, -o.y)).rgb * 0.125;
+  c += texture2D(uImage, vTexCoord + vec2( o.x,  o.y)).rgb * 0.0625;
+  c += texture2D(uImage, vTexCoord + vec2(-o.x,  o.y)).rgb * 0.0625;
+  c += texture2D(uImage, vTexCoord + vec2( o.x, -o.y)).rgb * 0.0625;
+  c += texture2D(uImage, vTexCoord + vec2(-o.x, -o.y)).rgb * 0.0625;
+  gl_FragColor = vec4(c * a, a);
+}
+`;
+
 export function compileShader(
   gl: WebGLRenderingContext,
   type: number,

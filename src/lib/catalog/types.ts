@@ -22,6 +22,16 @@ export type CatalogProduct = {
   desc: string;
 };
 
+export const CATEGORY_LABELS: Record<CatalogProduct["category"], string> = {
+  FOUNDATION: "Foundation",
+  BLUSH: "Blush",
+  BRONZER: "Bronzer",
+  HIGHLIGHTER: "Highlighter",
+  EYESHADOW: "Eyeshadow",
+  LIPSTICK: "Lipstick",
+  SETTING_POWDER: "Setting Powder",
+};
+
 type PrismaProductLike = {
   id: string;
   category: string;

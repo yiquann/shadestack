@@ -2,12 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useFaceLandmarks } from "@/lib/facemesh/useFaceLandmarks";
-import { RenderCanvas } from "./RenderCanvas";
+import { RenderCanvas, type RenderLooks } from "./RenderCanvas";
 
 const IMAGE_WIDTH = 500;
 const IMAGE_HEIGHT = 600;
 
-export function FaceMeshTracker() {
+type Props = {
+  looks: RenderLooks;
+};
+
+export function FaceMeshTracker({ looks }: Props) {
   const imageRef = useRef<HTMLImageElement>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null);
@@ -27,8 +31,16 @@ export function FaceMeshTracker() {
   return (
     <div>
       <div
-        className="relative mx-auto overflow-hidden rounded-card"
-        style={{ width: IMAGE_WIDTH, height: IMAGE_HEIGHT, maxWidth: "100%" }}
+        className="relative mx-auto overflow-hidden rounded-card [--preview-reserve:22rem] md:[--preview-reserve:15rem]"
+        style={{
+          aspectRatio: "5 / 6",
+          // Width comes from the column (≈1/3 of the screen on desktop via
+          // TryOnView's md:w-[34%]; full width on mobile) but is capped by the
+          // available height so the aspect-locked preview never overflows the
+          // non-scrolling frame. The height reserve is larger on mobile — taller
+          // header/controls and a full-width preview leave less vertical room.
+          width: "min(100%, calc((100dvh - var(--preview-reserve)) * 5 / 6))",
+        }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -49,6 +61,7 @@ export function FaceMeshTracker() {
             points={state.points}
             width={IMAGE_WIDTH}
             height={IMAGE_HEIGHT}
+            looks={looks}
           />
         )}
       </div>
