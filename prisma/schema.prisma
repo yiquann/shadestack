@@ -3,8 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Pooled connection used at runtime by the serverless app.
+  url       = env("DATABASE_URL")
+  // Direct (non-pooled) connection used for migrations, which the pooler
+  // can't run. Neon/Supabase/Vercel all expose both strings.
+  directUrl = env("DIRECT_URL")
 }
 
 enum Category {
@@ -24,10 +28,7 @@ model Product {
   brand    String
   shade    String
   colorHex String
-  // SQLite has no native fixed-point type; Decimal is stored via NUMERIC/REAL
-  // affinity here, which can lose precision on non-whole-cent values. Accepted
-  // for local dev per docs/superpowers/specs/2026-07-16-phase1-scaffold-design.md;
-  // switching `provider` to "postgresql" restores exact Decimal semantics.
+  // Postgres stores this as NUMERIC, giving exact fixed-point Decimal semantics.
   price    Decimal
   coverage String
   finish   String

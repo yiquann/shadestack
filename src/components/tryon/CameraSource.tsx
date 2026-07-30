@@ -32,9 +32,12 @@ const HEIGHT = 600;
 // canvas, so an unbounded size also hardens the feather. Bounding here fixes
 // both. Aspect ratio is preserved, so object-cover still matches the <video>.
 const MAX_RENDER_EDGE = 900;
-// Segmentation is a second per-frame model; run it every Nth frame and reuse
-// the last skin mask between runs to protect the frame budget.
-const SEGMENT_INTERVAL = 4;
+// Segmentation is a second per-frame model whose getAsUint8Array() readback is
+// a synchronous GPU->CPU pipeline flush that stalls the render thread. Run it
+// only every Nth frame and reuse the last skin mask between runs. The hairline
+// moves slowly, so a low rate (~once per second) is imperceptible while keeping
+// the stall off all but a few frames per second.
+const SEGMENT_INTERVAL = 30;
 // Dev shows the FPS badge automatically; in a production build, opt in with a
 // `?fps=1` query param so the true (non-dev) frame rate can be measured.
 const SHOW_FPS =
@@ -102,15 +105,39 @@ export function CameraSource({ looks, facingMode }: Props) {
     let lastTs = performance.now();
     let fpsAccum = 0;
     let fpsFrames = 0;
+    // TEMP FPS DIAGNOSTIC: rolling sum of per-frame work time (ms), plus a
+    // per-stage breakdown so we can see which stage eats the budget.
+    let workAccum = 0;
+    let detectAccum = 0;
+    let segAccum = 0;
+    let renderAccum = 0;
 
     const renderer = createCompositeRenderer(canvas);
     const leftMask = document.createElement("canvas");
     const rightMask = document.createElement("canvas");
     const divider = dividerRef.current;
 
-    const useVfc = typeof (video as HTMLVideoElement & {
+    // Scheduler: default to requestVideoFrameCallback when available.
+    // TEMP FPS DIAGNOSTIC: ?sched=raf forces requestAnimationFrame and
+    // ?sched=vfc forces vfc, so the two can be A/B'd live to see whether vfc is
+    // being starved by GPU/video-presentation contention.
+    const params =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search)
+        : new URLSearchParams();
+    const schedParam = params.get("sched");
+    // TEMP FPS DIAGNOSTIC: ?segread=off keeps calling segmentForVideo but skips
+    // the getAsUint8Array() readback, to separate the GPU->CPU readback stall
+    // from the segment inference cost itself.
+    const skipSegRead = params.get("segread") === "off";
+    const hasVfc = typeof (video as HTMLVideoElement & {
       requestVideoFrameCallback?: unknown;
     }).requestVideoFrameCallback === "function";
+    const useVfc = schedParam === "raf" ? false : schedParam === "vfc" ? true : hasVfc;
+    if (SHOW_FPS) {
+      // eslint-disable-next-line no-console
+      console.log(`[fps-diag] scheduler = ${useVfc ? "requestVideoFrameCallback" : "requestAnimationFrame"}`);
+    }
 
     function schedule(cb: () => void) {
       if (useVfc) {
@@ -128,6 +155,8 @@ export function CameraSource({ looks, facingMode }: Props) {
       const frameMs = now - lastTs;
       lastTs = now;
       avgFrameMs = avgFrameMs * 0.9 + frameMs * 0.1;
+      // TEMP FPS DIAGNOSTIC: measure the actual work this frame spends.
+      const workStart = performance.now();
 
       if (video.readyState >= 2 && video.videoWidth > 0) {
         // Size the canvas backing store to the camera's aspect ratio (capped at
@@ -154,22 +183,29 @@ export function CameraSource({ looks, facingMode }: Props) {
           ? Math.max(2, detectionInterval(avgFrameMs))
           : detectionInterval(avgFrameMs);
         if (frameCount % interval === 0) {
+          const t0 = performance.now();
           const result = landmarker.detectForVideo(video, now);
           const face = result.faceLandmarks[0];
           lastPoints = face && face.length > 0 ? face.map((p) => ({ x: p.x, y: p.y })) : null;
+          detectAccum += performance.now() - t0; // TEMP FPS DIAGNOSTIC
         }
         const segInterval = comparingNow ? SEGMENT_INTERVAL * 2 : SEGMENT_INTERVAL;
         if (segmenter && looksNeedSkinMask(rl) && frameCount % segInterval === 0) {
+          const t0 = performance.now(); // TEMP FPS DIAGNOSTIC
           segmenter.segmentForVideo(video, now, (result) => {
             const mask = result.categoryMask;
             if (!mask) return;
             try {
-              buildSkinMask(skinCanvas, mask.getAsUint8Array(), mask.width, mask.height);
-              skinReady = true;
+              // TEMP FPS DIAGNOSTIC: skip the readback under ?segread=off.
+              if (!skipSegRead) {
+                buildSkinMask(skinCanvas, mask.getAsUint8Array(), mask.width, mask.height);
+                skinReady = true;
+              }
             } finally {
               mask.close();
             }
           });
+          segAccum += performance.now() - t0; // TEMP FPS DIAGNOSTIC
         }
         const clip = skinReady ? skinCanvas : undefined;
         // Rebuild the masks only when their inputs changed since the last frame:
@@ -183,6 +219,7 @@ export function CameraSource({ looks, facingMode }: Props) {
         prevLooks = rl;
         prevW = canvas.width;
         prevH = canvas.height;
+        const tRender = performance.now(); // TEMP FPS DIAGNOSTIC
         if (rebuildMasks) {
           let glLayers: Layer[] = [];
           if (lastPoints) {
@@ -210,6 +247,7 @@ export function CameraSource({ looks, facingMode }: Props) {
           cachedGlLayers = glLayers;
         }
         renderer.render(video, cachedGlLayers, rebuildMasks);
+        renderAccum += performance.now() - tRender; // TEMP FPS DIAGNOSTIC
 
         if (divider) {
           if (divider.width !== canvas.width) divider.width = canvas.width;
@@ -233,13 +271,43 @@ export function CameraSource({ looks, facingMode }: Props) {
       frameCount += 1;
       fpsAccum += frameMs;
       fpsFrames += 1;
+      // TEMP FPS DIAGNOSTIC: accumulate work time and, once per second, log
+      // average work-per-frame vs. the average frame interval. If work << frame
+      // interval, we're camera-bound (H1); if work ≈ frame interval, work-bound (H2).
+      workAccum += performance.now() - workStart;
       if (SHOW_FPS && fpsAccum >= 500) {
         setFps(Math.round(1000 / (fpsAccum / fpsFrames)));
+        // eslint-disable-next-line no-console
+        console.log(
+          `[fps-diag] fps=${Math.round(1000 / (fpsAccum / fpsFrames))} ` +
+            `frameInterval=${(fpsAccum / fpsFrames).toFixed(1)}ms ` +
+            `work/frame=${(workAccum / fpsFrames).toFixed(1)}ms ` +
+            `| detect=${(detectAccum / fpsFrames).toFixed(1)} ` +
+            `seg=${(segAccum / fpsFrames).toFixed(1)} ` +
+            `render+masks=${(renderAccum / fpsFrames).toFixed(1)} (avg/frame)`
+        );
         fpsAccum = 0;
         fpsFrames = 0;
+        workAccum = 0;
+        detectAccum = 0;
+        segAccum = 0;
+        renderAccum = 0;
       }
       schedule(tick);
     }
+
+    // --- TEMP FPS DIAGNOSTIC (remove after root-cause) ------------------
+    // Logs the camera's negotiated settings once, so we can see whether the
+    // sensor is only delivering ~15fps (camera-bound) vs. the render loop
+    // overrunning its budget (work-bound).
+    {
+      const track = stream?.getVideoTracks?.()[0];
+      if (track) {
+        // eslint-disable-next-line no-console
+        console.log("[fps-diag] camera settings", track.getSettings());
+      }
+    }
+    // --------------------------------------------------------------------
 
     createVideoFaceLandmarker().then((lm) => {
       if (cancelled) {

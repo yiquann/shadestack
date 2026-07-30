@@ -1,18 +1,35 @@
 import type { Point } from "@/lib/facemesh/polygon";
 
-function tracePath(ctx: CanvasRenderingContext2D, polygon: Point[]): void {
+// Masks are a smooth, low-frequency coverage field (their edges are
+// deliberately feathered), so they carry no fine detail worth rasterizing at
+// full canvas resolution. Rendering + blurring them at a reduced resolution and
+// letting the compositor's LINEAR mask sampling upscale them cuts the CSS
+// blur() cost dramatically — blur cost scales with (pixels × radius), and this
+// shrinks both. The long edge is capped here; the polygon, holes, feather and
+// clip images are all scaled to match, so the result is identical apart from
+// the (invisible, because feathered) loss of high-frequency mask detail.
+const MASK_MAX_EDGE = 256;
+
+function tracePath(ctx: CanvasRenderingContext2D, polygon: Point[], scale: number): void {
   ctx.beginPath();
   polygon.forEach((p, i) => {
-    if (i === 0) ctx.moveTo(p.x, p.y);
-    else ctx.lineTo(p.x, p.y);
+    const x = p.x * scale;
+    const y = p.y * scale;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
   });
   ctx.closePath();
 }
 
 /**
  * Rasterize a feathered white polygon mask into `canvas`, reusing the same
- * canvas across calls. Resizing the canvas clears it; when the size is
- * unchanged we clear explicitly so a stale mask never bleeds through.
+ * canvas across calls. The mask is drawn at a reduced resolution (see
+ * MASK_MAX_EDGE) — `width`/`height` are the target canvas size the mask maps
+ * onto, and everything (polygon, holes, feather, clips) is scaled down to the
+ * reduced mask size. The compositor samples it with normalized texcoords and
+ * LINEAR filtering, so the smaller mask upscales smoothly. Resizing the canvas
+ * clears it; when the size is unchanged we clear explicitly so a stale mask
+ * never bleeds through.
  *
  * `holes` are punched out of the filled mask (destination-out) under the same
  * blur, so their edges are feathered too — used to keep facial features (eyes,
@@ -37,21 +54,27 @@ export function drawMask(
   clipMask?: CanvasImageSource,
   regionClip?: CanvasImageSource
 ): void {
-  if (canvas.width !== width) canvas.width = width;
-  if (canvas.height !== height) canvas.height = height;
+  // Downscale factor: the mask is rendered at this fraction of the target size.
+  const scale = Math.min(1, MASK_MAX_EDGE / Math.max(width, height));
+  const maskW = Math.max(1, Math.round(width * scale));
+  const maskH = Math.max(1, Math.round(height * scale));
+  const scaledFeather = featherPx * scale;
+
+  if (canvas.width !== maskW) canvas.width = maskW;
+  if (canvas.height !== maskH) canvas.height = maskH;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Failed to get 2D context for mask canvas");
 
-  ctx.clearRect(0, 0, width, height);
-  ctx.filter = `blur(${featherPx}px)`;
+  ctx.clearRect(0, 0, maskW, maskH);
+  ctx.filter = `blur(${scaledFeather}px)`;
   ctx.fillStyle = "white";
-  tracePath(ctx, polygon);
+  tracePath(ctx, polygon, scale);
   ctx.fill();
 
   if (holes && holes.length > 0) {
     ctx.globalCompositeOperation = "destination-out";
     for (const hole of holes) {
-      tracePath(ctx, hole);
+      tracePath(ctx, hole, scale);
       ctx.fill();
     }
     ctx.globalCompositeOperation = "source-over";
@@ -62,7 +85,7 @@ export function drawMask(
   // hairline. Blur stays on so the clipped edge is feathered, not hard.
   if (clipMask) {
     ctx.globalCompositeOperation = "destination-in";
-    ctx.drawImage(clipMask, 0, 0, width, height);
+    ctx.drawImage(clipMask, 0, 0, maskW, maskH);
     ctx.globalCompositeOperation = "source-over";
   }
 
@@ -71,7 +94,7 @@ export function drawMask(
   // masking. Blur stays on so the clipped edge is feathered, not hard.
   if (regionClip) {
     ctx.globalCompositeOperation = "destination-in";
-    ctx.drawImage(regionClip, 0, 0, width, height);
+    ctx.drawImage(regionClip, 0, 0, maskW, maskH);
     ctx.globalCompositeOperation = "source-over";
   }
 }
