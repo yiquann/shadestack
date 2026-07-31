@@ -8,6 +8,7 @@ import { useSaved } from "@/lib/saved/SavedContext";
 import { useTryOnSession } from "@/lib/tryon/TryOnSessionContext";
 import { ProductList } from "@/components/catalog/ProductList";
 import { ProductDetailSheet } from "@/components/detail/ProductDetailSheet";
+import { PageTitle } from "@/components/nav/PageTitle";
 import { SavedLookCard } from "./SavedLookCard";
 
 const SECTION_LABEL = "text-[11px] font-bold uppercase tracking-[0.8px] text-textMuted";
@@ -38,8 +39,11 @@ export function SavedView() {
   }
 
   return (
-    <main className="px-5 pb-8 pt-6">
-      <h1 className="font-display text-2xl text-ink">Saved</h1>
+    // This tab scrolls (unlike Discover/Try On). It scrolls *internally* within
+    // the app shell rather than scrolling the document, so the tab bar below
+    // stays put and needs no padding reserved for it.
+    <main className="min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-6">
+      <PageTitle>Saved</PageTitle>
 
       <section className="mt-6">
         <h2 className={SECTION_LABEL}>Saved Looks</h2>

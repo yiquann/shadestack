@@ -7,6 +7,7 @@ import { HeroBanner } from "./HeroBanner";
 import { ProductList } from "./ProductList";
 import { filterByCategory, searchProducts } from "./filtering";
 import { ProductDetailSheet } from "@/components/detail/ProductDetailSheet";
+import { PageTitle } from "@/components/nav/PageTitle";
 
 type Props = {
   products: CatalogProduct[];
@@ -26,43 +27,51 @@ export function DiscoverView({ products }: Props) {
 
   return (
     <>
-      <h1 className="shrink-0 font-display text-2xl text-ink">Discover</h1>
+      <PageTitle>Discover</PageTitle>
 
-      <div className="mt-4 flex min-h-0 flex-1 flex-col gap-4 md:flex-row">
-        {/* Left: all products in a scrollable container */}
-        <div className="flex min-h-0 flex-col gap-3 md:w-1/2">
-          <div className="shrink-0">
-            <CategoryChips active={activeCategory} onChange={setActiveCategory} />
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto rounded-card border border-border">
-            <ProductList products={visibleProducts} onSelect={setSelectedProduct} />
-          </div>
-        </div>
+      {/* Order down the page: title → hero → search → chips → list, each
+          separated by 16px (mt-4). A single column at every width now, since the
+          hero and the search bar both moved out of what used to be the
+          right-hand column. These are direct flex children of <main>, which sets
+          no gap of its own, so each section owns its own top margin.
+          CategoryChips cancels its internal vertical padding with a matching
+          negative margin, so it does not add to these gaps. */}
+      <div className="mt-4 shrink-0">
+        <HeroBanner />
+      </div>
 
-        {/* Right: virtual try-on banner + product search */}
-        <div className="flex min-h-0 flex-col gap-4 md:w-1/2">
-          <HeroBanner />
-          <div className="relative shrink-0">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search products…"
-              aria-label="Search products"
-              className="w-full rounded-pill border border-border bg-surface py-2 pl-4 pr-9 text-sm text-ink outline-none transition-colors duration-150 placeholder:text-textFaint focus-visible:ring-2 focus-visible:ring-accent"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => setQuery("")}
-                aria-label="Clear search"
-                className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-textMuted transition-colors duration-150 hover:bg-chip hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-        </div>
+      <div className="relative mt-4 shrink-0">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search products…"
+          aria-label="Search products"
+          // text-base (16px), not text-sm: iOS Safari auto-zooms the page when a
+          // focused field's font-size is under 16px. Applies to every text input.
+          className="w-full rounded-pill border border-border bg-surface py-2 pl-4 pr-9 text-base text-ink outline-none transition-colors duration-150 placeholder:text-textFaint focus-visible:ring-2 focus-visible:ring-accent"
+        />
+        {query && (
+          <button
+            type="button"
+            onClick={() => setQuery("")}
+            aria-label="Clear search"
+            className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-textMuted transition-colors duration-150 hover:bg-chip hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      <div className="mt-4 shrink-0">
+        <CategoryChips active={activeCategory} onChange={setActiveCategory} />
+      </div>
+
+      {/* No card and no scroller of its own — the page itself scrolls (see
+          <main>). -mx-5 lets each row's divider span the full width while the
+          rows' own px-5 keeps their content aligned with everything above. */}
+      <div className="-mx-5 mt-4">
+        <ProductList products={visibleProducts} onSelect={setSelectedProduct} />
       </div>
 
       {selectedProduct && (
