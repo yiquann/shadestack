@@ -5,7 +5,17 @@
       <stop offset="100%" stop-color="#D4A876"/>
     </radialGradient>
   </defs>
-  <rect width="500" height="600" fill="#FAF6F2"/>
+  <!-- Backdrop matches the dark camera/photo preview (design-system
+       `darkGradient`), not the page cream: at 5:6 the face ellipse leaves a
+       band above and below it, and a cream band read as a bright white line
+       across the top and bottom of the preview once the face was tinted. -->
+  <!-- Overhangs the viewBox on every side (clipped by the root svg's own
+       overflow) so the backdrop always covers the full raster edge to edge. A
+       rect sized exactly to the viewBox leaves the outermost row antialiased
+       against transparency, which composites as a pale hairline along the top
+       and bottom of the preview. Colour matches the app background (and the
+       preview container behind it), so any residual edge blend is invisible. -->
+  <rect x="-4" y="-4" width="508" height="608" fill="#FAF6F2"/>
 
   <path d="M 210 430 Q 210 480 215 510 L 285 510 Q 290 480 290 430 Z" fill="#D4A876"/>
 

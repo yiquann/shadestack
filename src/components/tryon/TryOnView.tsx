@@ -68,9 +68,10 @@ export function TryOnView({ products }: Props) {
   }
 
   return (
-    // Fixed to the viewport (minus the bottom nav) and non-scrolling; the two
-    // panels below scroll internally instead of the whole page.
-    <main className="flex h-[calc(100dvh-5rem)] flex-col overflow-hidden px-5 pt-6">
+    // Fills whatever the app shell has left after the tab bar — no viewport
+    // maths of its own, so the last control row cannot land under the bar.
+    // Non-scrolling; the panels below scroll internally instead.
+    <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 pb-2 pt-6">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-2xl text-ink">Try On</h1>
         <div className="w-full sm:w-auto sm:min-w-[260px]">
@@ -79,9 +80,12 @@ export function TryOnView({ products }: Props) {
       </div>
 
       <div className="mt-4 flex min-h-0 flex-1 flex-col gap-4 md:flex-row">
-        {/* Left: face preview + controls */}
-        <div className="flex min-h-0 flex-col items-center gap-3 md:w-[34%]">
-          <div className="w-full shrink-0">
+        {/* Left: face preview + controls. The preview is the only flexible row —
+            it absorbs whatever height the controls below it don't need, so it
+            shrinks on short viewports instead of pushing them out of the
+            overflow-hidden frame and behind the tab bar. */}
+        <div className="flex min-h-0 flex-1 flex-col items-center gap-3 md:w-[34%] md:flex-none">
+          <div className="flex min-h-0 w-full flex-1 justify-center">
             {source === "model" && <FaceMeshTracker looks={renderLooks} />}
             {source === "photo" && <PhotoSource looks={renderLooks} />}
             {source === "camera" && <CameraSource looks={renderLooks} facingMode={facingMode} />}

@@ -11,7 +11,10 @@ export default async function DiscoverPage() {
   const catalogProducts = products.map(toCatalogProduct);
 
   return (
-    <main className="flex h-[calc(100dvh-5rem)] flex-col overflow-hidden px-5 pt-6">
+    // overflow-y-auto, not hidden: the whole page scrolls (the product list no
+    // longer has a scroller of its own). It scrolls *inside* the app shell, so
+    // the tab bar below stays fixed in place while this content moves.
+    <main className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-6 pt-6">
       <DiscoverView products={catalogProducts} />
     </main>
   );

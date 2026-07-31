@@ -12,6 +12,32 @@
   --color-text-faint: #B8ADA5;
   --color-border: #EDE5DD;
   --color-surface: #FFFFFF;
+
+  /* Single source of truth for the bottom tab bar's footprint: BottomNav sizes
+     itself to it and full-height pages subtract it from 100dvh, so the content
+     frame ends exactly where the tabs begin. Previously both sides hardcoded
+     5rem against a nav that measured ~41px, leaving a dead strip above the bar.
+     Includes the iOS home-indicator inset so the tabs clear it. */
+  --nav-h: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+
+}
+
+/* The app shell: a column exactly one viewport tall, holding the page above the
+   tab bar. Written as plain declarations rather than a custom property or
+   @supports block on purpose — this height is the one thing the whole layout
+   depends on, and every indirection is another way for it to resolve to `auto`
+   and collapse the shell to its content (which parked the tab bar mid-screen
+   whenever a page was short, e.g. Photo mode before a photo is chosen).
+   Two declarations: a browser that understands dvh takes the second, one that
+   doesn't keeps the first. No feature query to get wrong. */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  /* It sits inside body's own flex column; never let that shrink it. */
+  flex-shrink: 0;
+  overflow: hidden;
+  height: 100vh;
+  height: 100dvh;
 }
 
 @theme inline {

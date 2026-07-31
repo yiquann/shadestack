@@ -13,6 +13,7 @@ import { buildHalfMask } from "@/lib/webgl/regionMask";
 import type { Point } from "@/lib/facemesh/polygon";
 import type { AppliedLayer } from "@/lib/tryon/session";
 import type { RenderLooks } from "./RenderCanvas";
+import { fitWidth, useFitHeight } from "@/lib/tryon/useFitHeight";
 import { BeforeAfterOverlay } from "./BeforeAfterOverlay";
 
 // Segmentation (a second GPU model + a CPU readback) only feeds foundation's
@@ -56,6 +57,8 @@ export function CameraSource({ looks, facingMode }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dividerRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const fitRef = useRef<HTMLDivElement>(null);
+  const availableHeight = useFitHeight(fitRef);
   const looksRef = useRef(looks);
   const [fps, setFps] = useState(0);
 
@@ -346,20 +349,18 @@ export function CameraSource({ looks, facingMode }: Props) {
   }, [status]);
 
   return (
-    <div>
-      <div
-        ref={containerRef}
-        className="relative mx-auto overflow-hidden rounded-card bg-ink [--preview-reserve:22rem] md:[--preview-reserve:15rem]"
-        style={{
-          aspectRatio: "3 / 4",
-          // Width comes from the column (≈1/3 of the screen on desktop via
-          // TryOnView's md:w-[34%]; full width on mobile) but is capped by the
-          // available height so the aspect-locked preview never overflows the
-          // non-scrolling frame. The height reserve is larger on mobile — taller
-          // header/controls and a full-width preview leave less vertical room.
-          width: "min(100%, calc((100dvh - var(--preview-reserve)) * 3 / 4))",
-        }}
-      >
+    <div className="flex min-h-0 w-full flex-1 flex-col items-center">
+      <div ref={fitRef} className="flex min-h-0 w-full flex-1 items-center justify-center">
+        <div
+          ref={containerRef}
+          className="relative mx-auto overflow-hidden rounded-card bg-ink"
+          // Width derives from the measured free height so the box keeps the 3:4
+          // ratio the mirrored canvas overlay assumes — see useFitHeight.
+          style={{
+            aspectRatio: "3 / 4",
+            width: fitWidth(availableHeight, 3, 4),
+          }}
+        >
         {/* "before": the raw camera feed */}
         <video
           ref={videoRef}
@@ -389,21 +390,22 @@ export function CameraSource({ looks, facingMode }: Props) {
           className="pointer-events-none absolute inset-0 h-full w-full"
           style={{ transform: "scaleX(-1)" }}
         />
-        {comparing && <BeforeAfterOverlay targetRef={containerRef} />}
-        {SHOW_FPS && status === "ready" && (
-          <span className="absolute left-2 top-2 rounded-pill bg-ink/60 px-2 py-1 text-[10px] font-semibold text-surface">
-            {fps} fps
-          </span>
-        )}
+          {comparing && <BeforeAfterOverlay targetRef={containerRef} />}
+          {SHOW_FPS && status === "ready" && (
+            <span className="absolute left-2 top-2 rounded-pill bg-ink/60 px-2 py-1 text-[10px] font-semibold text-surface">
+              {fps} fps
+            </span>
+          )}
+        </div>
       </div>
 
       {status === "denied" && (
-        <p className="mt-2 text-center text-xs text-textMuted">
+        <p className="mt-2 shrink-0 text-center text-xs text-textMuted">
           Camera access is needed for live try-on. Enable it in your browser settings.
         </p>
       )}
       {status === "error" && (
-        <p className="mt-2 text-center text-xs text-textMuted">
+        <p className="mt-2 shrink-0 text-center text-xs text-textMuted">
           No camera available: {message}
         </p>
       )}
