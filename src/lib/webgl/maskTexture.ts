@@ -1,4 +1,5 @@
 import type { Point } from "@/lib/facemesh/polygon";
+import { featherCanvas } from "./canvasBlur";
 
 // Masks are a smooth, low-frequency coverage field (their edges are
 // deliberately feathered), so they carry no fine detail worth rasterizing at
@@ -66,7 +67,6 @@ export function drawMask(
   if (!ctx) throw new Error("Failed to get 2D context for mask canvas");
 
   ctx.clearRect(0, 0, maskW, maskH);
-  ctx.filter = `blur(${scaledFeather}px)`;
   ctx.fillStyle = "white";
   tracePath(ctx, polygon, scale);
   ctx.fill();
@@ -82,7 +82,7 @@ export function drawMask(
 
   // Intersect with the skin mask (scaled to this canvas). Keeps only where both
   // the polygon mask and the skin mask are set, snapping the top edge to the
-  // hairline. Blur stays on so the clipped edge is feathered, not hard.
+  // hairline.
   if (clipMask) {
     ctx.globalCompositeOperation = "destination-in";
     ctx.drawImage(clipMask, 0, 0, maskW, maskH);
@@ -91,10 +91,16 @@ export function drawMask(
 
   // Intersect with the region clip (scaled to this canvas). Keeps only where
   // the mask is set within the region, composing with the skin clip for final
-  // masking. Blur stays on so the clipped edge is feathered, not hard.
+  // masking.
   if (regionClip) {
     ctx.globalCompositeOperation = "destination-in";
     ctx.drawImage(regionClip, 0, 0, maskW, maskH);
     ctx.globalCompositeOperation = "source-over";
   }
+
+  // Feather last, over the fully composed shape — (polygon − holes) ∩ skin ∩
+  // region — so every edge it introduced is softened by one pass. Previously
+  // each step was drawn under a live `ctx.filter`, which compounded the blur at
+  // each intersection and, on WebKit (no ctx.filter), feathered nothing at all.
+  featherCanvas(canvas, ctx, scaledFeather, maskW, maskH);
 }

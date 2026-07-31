@@ -1,4 +1,7 @@
 import type { Point } from "@/lib/facemesh/polygon";
+import { featherCanvas } from "./canvasBlur";
+
+const HALF_MASK_FEATHER_PX = 2;
 
 /** Signed side of point p relative to the directed line a->b (2D cross product). */
 export function sideOfLine(p: Point, a: Point, b: Point): number {
@@ -23,7 +26,6 @@ export function buildHalfMask(
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Failed to get 2D context for half mask");
   ctx.clearRect(0, 0, width, height);
-  ctx.filter = "blur(2px)";
 
   // Direction of the midline; extend far beyond the canvas so the split line
   // always spans it. Build a quad covering the chosen side by offsetting the
@@ -57,4 +59,7 @@ export function buildHalfMask(
   ctx.closePath();
   ctx.fillStyle = "white";
   ctx.fill();
+  // Soften the split seam. Applied after the fill (not via `ctx.filter` during
+  // it) so it also works on WebKit, which does not implement ctx.filter.
+  featherCanvas(canvas, ctx, HALF_MASK_FEATHER_PX, width, height);
 }

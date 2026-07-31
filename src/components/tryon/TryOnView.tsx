@@ -244,10 +244,6 @@ export function TryOnView({ products }: Props) {
         </div>
       </div>
 
-      {showSaveSheet && (
-        <SaveLookSheet
-          hasA={hasA}
-          hasB={hasB}
       {drawer && (
         <ProductDrawer
           key={`${drawer.look}:${drawer.mode}`}
@@ -262,6 +258,10 @@ export function TryOnView({ products }: Props) {
         />
       )}
 
+      {showSaveSheet && (
+        <SaveLookSheet
+          hasA={hasA}
+          hasB={hasB}
           defaultLook={activeLook}
           onClose={() => setShowSaveSheet(false)}
           onSave={(choices) => {
