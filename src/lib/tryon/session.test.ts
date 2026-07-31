@@ -8,6 +8,7 @@ import {
   clearLook,
   emptyLooks,
   migrateStoredSession,
+  restorableSource,
 } from "./session";
 import type { CatalogProduct } from "@/lib/catalog/types";
 
@@ -147,5 +148,29 @@ describe("two-look model", () => {
   it("migrateStoredSession falls back to empty on garbage", () => {
     expect(migrateStoredSession(null)).toEqual({ looks: { A: [], B: [] }, mode: "single" });
     expect(migrateStoredSession({ nope: 1 })).toEqual({ looks: { A: [], B: [] }, mode: "single" });
+  });
+});
+
+describe("restorableSource", () => {
+  it("restores photo, so an unrequested reload does not strand the user on Model", () => {
+    // The iOS Photos picker can get the tab discarded and reloaded; without
+    // this the user silently landed back on the illustrated model face.
+    expect(restorableSource("photo")).toBe("photo");
+  });
+
+  it("restores model", () => {
+    expect(restorableSource("model")).toBe("model");
+  });
+
+  it("downgrades camera to model so a reload never re-prompts for permission", () => {
+    expect(restorableSource("camera")).toBe("model");
+  });
+
+  it("falls back to model on absent or malformed values", () => {
+    expect(restorableSource(null)).toBe("model");
+    expect(restorableSource(undefined)).toBe("model");
+    expect(restorableSource("")).toBe("model");
+    expect(restorableSource("nonsense")).toBe("model");
+    expect(restorableSource({ source: "photo" })).toBe("model");
   });
 });

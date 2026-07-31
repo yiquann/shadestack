@@ -2,6 +2,17 @@
 
 import { useEffect, useState, type RefObject } from "react";
 import { getFaceLandmarker } from "./faceLandmarker";
+import { rasterSize } from "./rasterSize";
+
+// Detection landmarks come back normalized (0..1), so the raster's absolute size
+// only affects cost, never the result. Uncapped it was the image's natural size:
+// harmless for the 500x600 model SVG, but a 12MP phone selfie (4032x3024) meant
+// a ~48MB canvas allocated alongside the already-decoded <img>, MediaPipe's own
+// copy and two WebGL contexts. On iOS that spike is enough to get the tab
+// discarded and reloaded, which silently reset the source back to Model.
+// 1080 keeps far more detail than the face mesh can use while cutting the
+// allocation by an order of magnitude.
+const MAX_RASTER_EDGE = 1080;
 
 export type FaceLandmarksState =
   | { status: "loading" }
@@ -32,8 +43,13 @@ export function useFaceLandmarks(
         // makeup composite up and to the left. A canvas has unambiguous pixel
         // dimensions, so the full face fills the frame at its true scale.
         const raster = document.createElement("canvas");
-        raster.width = img.naturalWidth || img.width;
-        raster.height = img.naturalHeight || img.height;
+        const { width: rw, height: rh } = rasterSize(
+          img.naturalWidth || img.width,
+          img.naturalHeight || img.height,
+          MAX_RASTER_EDGE
+        );
+        raster.width = rw;
+        raster.height = rh;
         const rctx = raster.getContext("2d");
         if (!rctx) {
           setState({ status: "error", message: "Could not rasterize model image" });

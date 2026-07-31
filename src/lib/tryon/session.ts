@@ -104,3 +104,22 @@ export function migrateStoredSession(parsed: unknown): StoredSession {
   }
   return { looks: emptyLooks(), mode: "single" };
 }
+
+/**
+ * Which source to restore after a same-tab reload.
+ *
+ * iOS Safari routinely discards and reloads a backgrounded tab under memory
+ * pressure, and the native Photos picker is exactly the kind of memory-heavy
+ * excursion that triggers it — on a page already holding two MediaPipe models
+ * and live WebGL contexts. Because `source` lived only in React state, that
+ * reload silently dropped the user back on the illustrated model face after
+ * they picked a photo, with no error to explain it.
+ *
+ * Restoring "photo" at least lands them back on the photo tab (the picked file
+ * itself cannot survive — its object URL dies with the document). "camera" is
+ * deliberately downgraded: a reload must never re-trigger a camera permission
+ * prompt the user did not just ask for.
+ */
+export function restorableSource(stored: unknown): SourceMode {
+  return stored === "photo" || stored === "model" ? stored : "model";
+}

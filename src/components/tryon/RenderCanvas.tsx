@@ -19,9 +19,24 @@ type Props = {
   height: number;
   looks: RenderLooks;
   clipMask?: CanvasImageSource;
+  /**
+   * How the canvas is fitted when the display box's aspect ratio differs from
+   * `width`/`height` — must match whatever the underlying <img>/<video> uses, or
+   * the composite is scaled differently from the face beneath it and the makeup
+   * slides off. Omit when the box already matches the source ratio exactly.
+   */
+  objectFit?: "contain" | "cover";
 };
 
-export function RenderCanvas({ image, points, width, height, looks, clipMask }: Props) {
+export function RenderCanvas({
+  image,
+  points,
+  width,
+  height,
+  looks,
+  clipMask,
+  objectFit,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dividerRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<CompositeRenderer | null>(null);
@@ -88,12 +103,14 @@ export function RenderCanvas({ image, points, width, height, looks, clipMask }: 
         width={width}
         height={height}
         data-testid="render-canvas"
+        style={objectFit ? { objectFit } : undefined}
         className="pointer-events-none absolute inset-0 h-full w-full"
       />
       <canvas
         ref={dividerRef}
         width={width}
         height={height}
+        style={objectFit ? { objectFit } : undefined}
         className="pointer-events-none absolute inset-0 h-full w-full"
       />
     </>

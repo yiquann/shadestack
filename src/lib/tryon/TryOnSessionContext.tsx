@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import type { CatalogProduct } from "@/lib/catalog/types";
 import {
   applyProduct,
@@ -11,6 +19,7 @@ import {
   clearLook as clearLookFn,
   emptyLooks,
   migrateStoredSession,
+  restorableSource,
   type AppliedLayer,
   type Looks,
   type LookId,
@@ -20,13 +29,15 @@ import {
 } from "./session";
 
 const STORAGE_KEY = "shadestack.tryon.session.v2";
+const SOURCE_KEY = "shadestack.tryon.source";
 
 type TryOnSessionValue = {
   looks: Looks;
   mode: ViewMode;
-  // The active face preview. Kept in-memory (not persisted) so a fresh reload
-  // always defaults to Model — no surprise camera prompt — while it still
-  // carries across in-app navigation (e.g. Saved → Try On opens on Camera).
+  // The active face preview. Mirrored to sessionStorage so it survives a reload
+  // the user did not ask for (see `restorableSource`) and carries across in-app
+  // navigation (e.g. Saved → Try On opens on Camera), but never outlives the
+  // tab and never restores Camera — a reload must not re-prompt for permission.
   source: SourceMode;
   setSource: (source: SourceMode) => void;
   addProduct: (product: CatalogProduct, look: LookId) => void;
@@ -43,9 +54,11 @@ const TryOnSessionContext = createContext<TryOnSessionValue | null>(null);
 
 export function TryOnSessionProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<StoredSession>({ looks: emptyLooks(), mode: "single" });
-  // Non-persisted (see `source` in the context value) — deliberately excluded
-  // from the localStorage `state` above.
-  const [source, setSource] = useState<SourceMode>("model");
+  // Kept out of the localStorage `state` above and mirrored to sessionStorage
+  // instead: it should survive a same-tab reload (see `restorableSource`) but
+  // not outlive the tab. Starts at "model" so the first client render matches
+  // the server output; the stored value is applied post-mount below.
+  const [source, setSourceState] = useState<SourceMode>("model");
 
   // The provider is server-rendered (no "use client" boundary above it in
   // (tabs)/layout.tsx), so the first client render must match the empty-looks
@@ -66,6 +79,32 @@ export function TryOnSessionProvider({ children }: { children: ReactNode }) {
       }
     } catch {
       // localStorage unavailable or corrupt — start with an empty session.
+    }
+  }, []);
+
+  // Restore the source across a reload the user did not ask for (iOS tab
+  // discard after the Photos picker). Post-mount, like the localStorage read
+  // above, so it cannot cause a hydration mismatch.
+  useEffect(() => {
+    try {
+      const stored = window.sessionStorage.getItem(SOURCE_KEY);
+      if (stored) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSourceState(restorableSource(stored));
+      }
+    } catch {
+      // sessionStorage unavailable — stay on the default source.
+    }
+  }, []);
+
+  // Written on change rather than in an effect on `source`, so that navigating
+  // away and back does not rewrite a value the user never touched.
+  const setSource = useCallback((next: SourceMode) => {
+    setSourceState(next);
+    try {
+      window.sessionStorage.setItem(SOURCE_KEY, next);
+    } catch {
+      // sessionStorage unavailable — the choice still holds for this page load.
     }
   }, []);
 
@@ -101,7 +140,7 @@ export function TryOnSessionProvider({ children }: { children: ReactNode }) {
       // it is not seeded from Look A.
       setMode: (mode) => setState((s) => ({ ...s, mode })),
     };
-  }, [state, source]);
+  }, [state, source, setSource]);
 
   return <TryOnSessionContext.Provider value={value}>{children}</TryOnSessionContext.Provider>;
 }
