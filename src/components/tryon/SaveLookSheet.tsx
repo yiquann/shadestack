@@ -22,8 +22,10 @@ type Selection = LookId | "both";
 const SEGMENT_BASE =
   "flex-1 rounded-pill px-3 py-2 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
+// text-base (16px): under 16px iOS Safari auto-zooms the page on focus — which
+// is especially disruptive here, inside a bottom sheet.
 const NAME_INPUT =
-  "w-full rounded-pill border border-border bg-surface px-4 py-2.5 text-sm text-ink outline-none transition-colors duration-150 placeholder:text-textFaint focus-visible:ring-2 focus-visible:ring-accent";
+  "w-full rounded-pill border border-border bg-surface px-4 py-2.5 text-base text-ink outline-none transition-colors duration-150 placeholder:text-textFaint focus-visible:ring-2 focus-visible:ring-accent";
 
 // Bottom sheet to name and save the current look(s). Mirrors ProductDetailSheet's
 // scrim + slideUp panel.

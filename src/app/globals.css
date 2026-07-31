@@ -64,6 +64,63 @@ body {
   font-family: var(--font-body);
 }
 
+/* --- Form fields ----------------------------------------------------------
+   iOS Safari zooms the whole page in when a focused text field's font-size is
+   below 16px, and does not zoom back out — so a 14px search box hijacks the
+   viewport on every tap. Every field in the app sets text-base explicitly; this
+   is the floor for any that doesn't (a bare element selector, so an explicit
+   utility class still wins — keep those at 16px or above). */
+input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+textarea,
+select {
+  font-size: 16px;
+}
+
+/* --- Press feedback -------------------------------------------------------
+   Applied globally to every interactive control rather than per-component, so
+   nothing can be missed. Two mechanisms, because neither covers both platforms:
+
+   1. -webkit-tap-highlight-color paints the moment a finger lands on iOS, before
+      any style recalculation — this is what makes a tap feel acknowledged. The
+      default is transparent in most resets, which is why taps read as dead.
+   2. :active covers pointer devices. iOS Safari only matches :active on
+      elements it considers clickable, which is what `cursor: pointer` below
+      establishes.
+
+   filter (not background) so the cue composes with whatever fill a control
+   already has — a single `background` rule here would outrank the utility
+   classes (pseudo-class beats a lone class) and flatten every button to one
+   colour, including ghost and accent variants. */
+button,
+[role="button"],
+a,
+label,
+summary {
+  -webkit-tap-highlight-color: rgba(196, 145, 108, 0.24); /* accent @ 24% */
+}
+
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+a,
+summary {
+  cursor: pointer;
+}
+
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active,
+a:active,
+label:active,
+summary:active {
+  filter: brightness(0.9);
+  /* Snap on immediately; releasing eases back out via the element's own
+     transition, so the press reads as instant but the release stays smooth. */
+  transition-duration: 0s;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

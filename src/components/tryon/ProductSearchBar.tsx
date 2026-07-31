@@ -37,7 +37,8 @@ export function ProductSearchBar({ products, activeLook }: Props) {
         onFocus={() => setDismissed(false)}
         placeholder="Search products to add…"
         aria-label="Search products to add"
-        className="w-full rounded-pill border border-border bg-surface py-2 pl-4 pr-9 text-sm text-ink outline-none transition-colors duration-150 placeholder:text-textFaint focus-visible:ring-2 focus-visible:ring-accent"
+        // text-base (16px): under 16px iOS Safari auto-zooms on focus.
+        className="w-full rounded-pill border border-border bg-surface py-2 pl-4 pr-9 text-base text-ink outline-none transition-colors duration-150 placeholder:text-textFaint focus-visible:ring-2 focus-visible:ring-accent"
       />
       {query && (
         <button
