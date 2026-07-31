@@ -5,9 +5,11 @@ import type { CatalogProduct } from "@/lib/catalog/types";
 
 type Props = {
   productId: string;
+  /** Open this product's details in place of the current one. */
+  onSelect: (product: CatalogProduct) => void;
 };
 
-export function SimilarCarousel({ productId }: Props) {
+export function SimilarCarousel({ productId, onSelect }: Props) {
   const [similar, setSimilar] = useState<CatalogProduct[]>([]);
   const [error, setError] = useState(false);
 
@@ -45,16 +47,27 @@ export function SimilarCarousel({ productId }: Props) {
       </p>
       <div className="mt-2 flex gap-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {similar.map((p) => (
-          <div key={p.id} className="shrink-0 text-center">
+          // A real button, not the bare swatch it used to be — these were inert,
+          // so there was no way to reach a suggested product's details.
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => onSelect(p)}
+            data-testid={`similar-${p.id}`}
+            aria-label={`View ${p.brand} ${p.name}, ${p.shade}`}
+            className="group shrink-0 rounded-card text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          >
             <div
-              className="h-14 w-14 rounded-full transition-transform duration-150 ease-out"
+              className="h-14 w-14 rounded-full transition-transform duration-150 ease-out group-hover:scale-105"
               style={{
                 background: `linear-gradient(145deg, ${p.colorHex}cc, ${p.colorHex})`,
                 boxShadow: "inset 0 -3px 6px rgba(0,0,0,0.12)",
               }}
             />
-            <p className="mt-1 w-16 truncate text-[10px] text-textSecondary">{p.brand}</p>
-          </div>
+            <p className="mt-1 w-16 truncate text-[10px] text-textSecondary transition-colors duration-150 group-hover:text-ink">
+              {p.brand}
+            </p>
+          </button>
         ))}
       </div>
     </div>
