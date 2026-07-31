@@ -39,7 +39,7 @@ describe("CATEGORY_RENDER", () => {
         { zone: "rightTemple", featherPx: 12 },
       ],
       blendMode: "multiply",
-      baseOpacity: 0.18,
+      baseOpacity: 0.48,
       smooth: "light",
     });
     expect(CATEGORY_RENDER.BLUSH).toEqual({
@@ -48,7 +48,7 @@ describe("CATEGORY_RENDER", () => {
         { zone: "rightCheek", featherPx: 12 },
       ],
       blendMode: "multiply",
-      baseOpacity: 0.32,
+      baseOpacity: 0.7,
       smooth: "light",
     });
     expect(CATEGORY_RENDER.HIGHLIGHTER).toEqual({

@@ -37,6 +37,18 @@ export const CATEGORY_RENDER: Record<CatalogProduct["category"], CategoryRenderC
     baseOpacity: 0.06,
     smooth: "none",
   },
+  // `baseOpacity` is the ceiling, not a fixed value: the per-layer slider scales
+  // 0..100% onto 0..baseOpacity, so these are what 100% looks like.
+  //
+  // Blush and bronzer sit well above the prototype's original 0.32 / 0.18
+  // because a multiply blend resolves to `dst * (1 - a*(1 - colour))` — the
+  // effect scales with how far the pigment sits from white, and cosmetic
+  // swatches are pale. At 0.32 a blush like #E8A0A0 moved the red channel by
+  // 6/255, so even a maxed-out slider barely registered on skin.
+  //
+  // Blush's 0.7 exceeding lipstick's 0.55 is not an inconsistency: lipstick
+  // swatches are far darker, so their (1 - colour) term is much larger and 0.55
+  // there lands heavier than 0.7 does on a pale pink.
   BRONZER: {
     entries: [
       { zone: "leftCheekbone", featherPx: 14 },
@@ -45,7 +57,7 @@ export const CATEGORY_RENDER: Record<CatalogProduct["category"], CategoryRenderC
       { zone: "rightTemple", featherPx: 12 },
     ],
     blendMode: "multiply",
-    baseOpacity: 0.18,
+    baseOpacity: 0.48,
     smooth: "light",
   },
   BLUSH: {
@@ -54,7 +66,7 @@ export const CATEGORY_RENDER: Record<CatalogProduct["category"], CategoryRenderC
       { zone: "rightCheek", featherPx: 12 },
     ],
     blendMode: "multiply",
-    baseOpacity: 0.32,
+    baseOpacity: 0.7,
     smooth: "light",
   },
   HIGHLIGHTER: {

@@ -132,13 +132,21 @@ API routes: `GET /api/products` (with `?category=&brand=&q=&finish=&coverage=&mi
 Per-category compositing (baseline values from prototype; tune with real landmarks):
 - **Foundation:** full-face tint, multiply, ~0.15–0.20 opacity
 - **Setting powder:** full-face, multiply, ~0.06 opacity
-- **Blush:** cheek zones, multiply, ~0.32 opacity, heavy feather/blur
-- **Bronzer:** temples + jawline, multiply, ~0.14–0.22, heaviest blur
+- **Blush:** cheek zones, multiply, ~0.70 opacity, heavy feather/blur
+- **Bronzer:** temples + jawline, multiply, ~0.48, heaviest blur
 - **Highlighter:** cheekbones + nose bridge, **screen**, ~0.20–0.30
 - **Eyeshadow:** lid zones, multiply, ~0.32, tight feather
 - **Lipstick:** lip zone (landmark-precise), multiply, ~0.55
 
-Per-layer opacity slider scales these baselines (0–100%).
+Per-layer opacity slider scales these baselines (0–100%) — each value above is
+the **ceiling** reached at 100%, not a fixed amount.
+
+Note on tuning these: a multiply layer resolves to `dst * (1 - a*(1 - colour))`,
+so perceived strength is driven by `opacity x (1 - colour)` — how far the pigment
+sits from white. Pale swatches therefore need a higher opacity than saturated
+ones to read at all, which is why blush/bronzer sit above the prototype's
+original 0.32/0.18. Raising opacity darkens every channel together; for pigments
+whose hue is close to the skin's (bronzer especially) it dims more than it warms.
 
 ## Conventions
 
