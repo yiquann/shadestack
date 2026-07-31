@@ -46,13 +46,24 @@ mobile stacking.
 
 | Session state | Buttons |
 |---|---|
-| Split view | `+ Look A` and `+ Look B`, side by side |
-| Single view, only Look A has layers | `+ Add Products` |
-| Single view, both looks have layers | `+ Add to Look A` — follows the swap state, matching the "swap to edit" affordance already on the layer panels |
+| Split view | `+ Look A` and `+ Look B`, side by side, both enabled |
+| Single view, both looks have layers | `+ Look A` and `+ Look B`, but only the active (swapped-to) look is enabled |
+| Single view, only Look A has layers | a single `+ Add Products` |
 
-Each button opens the drawer with its `LookId` as the add target. In single
-view that target is the active (swapped) look, so the drawer can never add to
-the look the user cannot currently edit.
+Each button opens the drawer with its own `LookId` as the add target.
+
+The single-with-both-looks row keeps both buttons in place rather than
+collapsing to one. Leaving split view should not make a button disappear and
+reflow the row; the pair stays, and the one you cannot currently edit simply
+goes inactive. This is the same treatment the layer panels already use in that
+state (`TryOnView.tsx:189-205`): the inactive side stays rendered at
+`opacity-50` and is marked `inert`, captioned "swap to edit".
+
+The disabled button therefore gets `disabled`, `opacity-50`, and
+`title="Swap to edit Look B"` so the reason is discoverable — it cannot be
+tapped, and the swap control directly above the row is what re-enables it.
+Because a disabled button can never open the drawer, the drawer still cannot
+target a look the user is not editing.
 
 ## The Drawer
 
@@ -212,7 +223,9 @@ geometry functions in `drawerGeometry.test.ts`:
 Manual verification, since it cannot be automated here: at ≥768px the tab is
 unchanged; below 768px the trigger row appears and the drawer opens, filters,
 adds to the correct look, and closes by scrim tap, gripper drag, and Escape.
-Keyboard lift needs a physical phone.
+Building a split look and then switching back to single view must leave both
+buttons in place with only the active look's button enabled, and swapping must
+move which one is disabled. Keyboard lift needs a physical phone.
 
 ## Out of Scope
 
