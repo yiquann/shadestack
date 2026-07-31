@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import type { CatalogProduct } from "@/lib/catalog/types";
 import type { LookId, ViewMode } from "@/lib/tryon/session";
 import { useTryOnSession } from "@/lib/tryon/TryOnSessionContext";
@@ -11,6 +11,8 @@ import { CameraSource } from "./CameraSource";
 import type { RenderLooks } from "./RenderCanvas";
 import { LayerPanel } from "@/components/layers/LayerPanel";
 import { ProductSearchBar } from "./ProductSearchBar";
+import { LookBar } from "./LookBar";
+import { ProductDrawer } from "./ProductDrawer";
 import type { FacingMode } from "@/lib/facemesh/cameraHelpers";
 import { SplitControls } from "./SplitControls";
 import { SaveLookSheet } from "./SaveLookSheet";
@@ -28,6 +30,9 @@ export function TryOnView({ products }: Props) {
     useTryOnSession();
   const { saveLook } = useSaved();
   const [showSaveSheet, setShowSaveSheet] = useState(false);
+  // Which look the phone-width drawer targets and what it is showing; null when closed.
+  const [drawer, setDrawer] = useState<{ look: LookId; mode: "add" | "view" } | null>(null);
+  const closeDrawer = useCallback(() => setDrawer(null), []);
   const [swapped, setSwapped] = useState(false);
   // Split-view divider line (on by default). Separate from the single-view
   // before/after comparison, which is opt-in.
@@ -38,8 +43,10 @@ export function TryOnView({ products }: Props) {
   // single view is just one "Look" and there's nothing to swap between.
   const hasA = looks.A.length > 0;
   const hasB = looks.B.length > 0;
-  // In single view the swap button flips the active (previewed/edited) look.
-  const activeLook: LookId = swapped ? "B" : "A";
+  // The swap control only renders while Look B has layers, so if Look B is
+  // cleared while swapped, fall back to A rather than stranding the tab on an
+  // empty look with no way back to the one on screen.
+  const activeLook: LookId = swapped && hasB ? "B" : "A";
 
   const left = swapped ? looks.B : looks.A;
   const right = swapped ? looks.A : looks.B;
@@ -175,16 +182,29 @@ export function TryOnView({ products }: Props) {
           </div>
         </div>
 
-        {/* Right: search-to-add bar + the Active Layers stack (fills the rest) */}
-        <div className="flex min-h-0 flex-1 flex-col gap-3">
-          <div className="shrink-0">
+        {/* Right: search-to-add bar + the Active Layers stack. On phones this is
+            just the LookBar and it must never be the row that gets squeezed —
+            shrink-0 keeps it at its natural height so the preview above yields
+            instead. On md+ it becomes the panel column and fills the rest. */}
+        <div className="flex min-h-0 shrink-0 flex-col gap-3 md:min-h-0 md:flex-1">
+          <div className="shrink-0 md:hidden">
+            <LookBar
+              showBoth={viewMode === "split" || hasB}
+              activeLook={activeLook}
+              bothEnabled={viewMode === "split"}
+              hasProducts={looks[activeLook].length > 0}
+              onView={(look) => setDrawer({ look, mode: "view" })}
+              onAdd={(look) => setDrawer({ look, mode: "add" })}
+            />
+          </div>
+          <div className="hidden shrink-0 md:block">
             <ProductSearchBar products={products} activeLook={activeLook} />
           </div>
           {viewMode === "split" || hasB ? (
             // Split shows both looks editable. Single-with-B shows both too, but
             // only the active look is editable; the other is disabled until the
             // user swaps to it.
-            <div className="flex min-h-0 flex-1 gap-3">
+            <div className="hidden min-h-0 flex-1 gap-3 md:flex">
               {(["A", "B"] as const).map((lk) => {
                 const isDisabled = viewMode === "single" && lk !== activeLook;
                 return (
@@ -212,7 +232,7 @@ export function TryOnView({ products }: Props) {
               })}
             </div>
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col rounded-card border border-border p-3">
+            <div className="hidden min-h-0 flex-1 flex-col rounded-card border border-border p-3 md:flex">
               <h3 className="shrink-0 text-[11px] font-bold uppercase tracking-[0.8px] text-textMuted">
                 Look
               </h3>
@@ -228,6 +248,20 @@ export function TryOnView({ products }: Props) {
         <SaveLookSheet
           hasA={hasA}
           hasB={hasB}
+      {drawer && (
+        <ProductDrawer
+          key={`${drawer.look}:${drawer.mode}`}
+          products={products}
+          look={drawer.look}
+          mode={drawer.mode}
+          showTarget={viewMode === "split" || hasB}
+          readOnly={
+            drawer.mode === "view" && viewMode === "single" && drawer.look !== activeLook
+          }
+          onClose={closeDrawer}
+        />
+      )}
+
           defaultLook={activeLook}
           onClose={() => setShowSaveSheet(false)}
           onSave={(choices) => {

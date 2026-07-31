@@ -18,8 +18,9 @@
 - TypeScript strict mode. No `any`.
 - Vitest runs with `environment: "node"` — there is **no DOM or jsdom harness**. Do not write component tests or add a test environment. Only pure functions get unit tests; component tasks are gated on `npm run typecheck && npm run lint && npm test`.
 - Conventional commits (`feat:`, `fix:`, `refactor:`, `docs:`).
-- Nothing about the tab at ≥768px may change. `src/components/tryon/ProductSearchBar.tsx` is not edited by any task.
+- The ≥768px layout keeps its inline search bar and its on-page Active Layers container. `src/components/tryon/ProductSearchBar.tsx` is not edited by any task. Two deliberate exceptions, both approved: Task 5's `LayerRow` fix applies at every width, and Task 8's stale-`swapped` fix corrects the target the desktop search bar reads. Nothing else at ≥768px may change.
 - Drawer height cap is `0.5 * innerHeight`. Drag-close thresholds are 25% of panel height and 0.5 px/ms.
+- Below 768px the Active Layers container is hidden and its content is reached through the drawer's view mode — a tall photo/camera preview otherwise pushes it off the bottom of a phone screen.
 
 ---
 
@@ -609,9 +610,17 @@ git commit -m "feat(tryon): add keyboard-aware product drawer for phone widths"
 
 ---
 
-### Task 4: Trigger row and wiring
+### Task 4 (v1): SUPERSEDED — do not implement
 
-The `md:hidden` button row, and the `TryOnView` changes that swap it in below the breakpoint and mount the drawer.
+The original Task 4 built an `AddProductBar` whose buttons only *added* products, keeping the Active Layers container on the page below the trigger row. Mid-execution the user found that in photo and camera mode the tall face preview pushes that container below the fold on a phone, making it unreachable.
+
+Its code (`src/components/tryon/AddProductBar.tsx` and the four `TryOnView` edits) is on disk and uncommitted. **Tasks 5-8 below revise it in place — they do not start from a clean tree.** Read the current state of both files before editing.
+
+Two Important findings from Task 4 (v1)'s review are still open and are folded into Tasks 7 and 8:
+- **Stale `swapped`** — clearing the look `swapped` points at leaves `activeLook` on an empty look; the row collapses to the single-look layout but still targets Look B, and the swap control disappears so it cannot be undone. Pre-existing in `TryOnView`. Fixed in Task 8.
+- **No breakpoint guard** — opening the drawer below 768px then widening leaves the sheet fixed over the desktop layout. Fixed in Task 7.
+
+Superseded reference (the original Task 4 text):
 
 **Files:**
 - Create: `src/components/tryon/AddProductBar.tsx`
@@ -772,3 +781,435 @@ Keyboard lift (step 3 of the spec's manual list) can only be confirmed on a phys
 git add src/components/tryon/AddProductBar.tsx src/components/tryon/TryOnView.tsx
 git commit -m "feat(tryon): swap the search bar for look-targeted drawer buttons on phones"
 ```
+
+---
+
+## Revision — 2026-07-30
+
+Tasks 5-8 replace Task 4 (v1). They revise files that already exist on disk uncommitted; read each file's current state before editing. See the superseded-task note above for the two open review findings folded in here.
+
+### Task 5: Layer row fits a narrow container
+
+`LayerRow` was laid out for the desktop panel's column. In the drawer the product name pushes the visibility toggle and remove button off the right edge and clips the shade line. Constrain the text column so it truncates, and stack the two controls into one narrow column. Applies at every width — the row is better for it on desktop too.
+
+**Files:**
+- Modify: `src/components/layers/LayerRow.tsx:40-63` (text column), `:64-112` (the two control buttons)
+
+**Interfaces:**
+- Consumes: nothing.
+- Produces: no API change. Same props, same handlers, same `data-testid`s, same `aria-label`s.
+
+- [ ] **Step 1: Make the text column unable to overflow**
+
+In `src/components/layers/LayerRow.tsx`, the text container currently reads `className="min-w-0 flex-1"`. Add `overflow-hidden` so the column clips regardless of the range input's intrinsic width:
+
+```tsx
+      <div className="min-w-0 flex-1 overflow-hidden">
+```
+
+Leave the two `<p>` elements and the `<input type="range">` inside it exactly as they are — they already carry `truncate` and `w-full`.
+
+- [ ] **Step 2: Stack the visibility toggle above the remove button**
+
+Wrap the two existing trailing `<button>` elements — the visibility toggle and the remove `✕` — in a single flex column. Do not change either button's handler, `aria-label`, `aria-pressed`, `data-testid`, or inner SVG markup; only the wrapper is new, and `shrink-0` moves off the buttons onto the wrapper:
+
+```tsx
+      <div className="flex shrink-0 flex-col items-center gap-0.5">
+        <button
+          onClick={() => toggleVisible(layer.category, look)}
+          aria-label={layer.visible ? "Hide layer" : "Show layer"}
+          aria-pressed={layer.visible}
+          data-testid={`toggle-visible-${layer.category}`}
+          className="rounded-full p-2 text-textSecondary transition-colors duration-150 hover:bg-chip hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          {/* keep both existing SVG branches here, unchanged */}
+        </button>
+        <button
+          onClick={() => removeLayer(layer.category, look)}
+          aria-label={`Remove ${layer.product.name}`}
+          data-testid={`remove-${layer.category}`}
+          className="rounded-full p-2 text-textSecondary transition-colors duration-150 hover:bg-chip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          ✕
+        </button>
+      </div>
+```
+
+- [ ] **Step 3: Verify**
+
+Run: `npm run typecheck && npm run lint && npm test`
+Expected: all pass.
+
+---
+
+### Task 6: Drawer gains add and view modes
+
+The drawer currently only shows the catalog. It needs a second body — the target look's `LayerPanel` — because the on-page Active Layers container disappears below `md`. This task also closes the drawer if the viewport crosses to `md` or wider, which Task 4 (v1)'s review flagged as missing.
+
+**Files:**
+- Modify: `src/components/tryon/ProductDrawer.tsx` — props, a new effect, the caption, and the body
+
+**Interfaces:**
+- Consumes: `LayerPanel` from `@/components/layers/LayerPanel` (props: `{ look: LookId }`).
+- Produces: `<ProductDrawer products={CatalogProduct[]} look={LookId} mode={"add" | "view"} showTarget={boolean} onClose={() => void} />`. Task 8 passes `mode`.
+
+- [ ] **Step 1: Add the import and the `mode` prop**
+
+Add to the imports in `src/components/tryon/ProductDrawer.tsx`:
+
+```tsx
+import { LayerPanel } from "@/components/layers/LayerPanel";
+```
+
+Add `mode` to the `Props` type, between `look` and `showTarget`:
+
+```tsx
+  /** `add` shows the searchable catalog; `view` shows the look's applied layers. */
+  mode: "add" | "view";
+```
+
+and to the destructured parameter list, which becomes `{ products, look, mode, showTarget, onClose }`.
+
+- [ ] **Step 2: Close the drawer when the viewport reaches `md`**
+
+Add this effect directly below the existing `Escape`-key effect. Without it, opening the drawer on a narrow window and then widening leaves the sheet fixed over the desktop layout:
+
+```tsx
+  // The drawer is a phone-width affordance. If the viewport grows past `md`
+  // — rotation, a foldable, a resized window — the desktop layout takes over
+  // and the sheet must not be left floating above it.
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const onChange = () => {
+      if (mq.matches) onClose();
+    };
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [onClose]);
+```
+
+- [ ] **Step 3: Make the accessible label mode-aware**
+
+Replace the panel's `aria-label={\`Add products to Look ${look}\`}` with:
+
+```tsx
+          aria-label={
+            mode === "add" ? `Add products to Look ${look}` : `Look ${look} products`
+          }
+```
+
+- [ ] **Step 4: Swap the body on mode**
+
+Replace the whole block that currently runs from `<div className="shrink-0 px-5 pb-3">` through the closing `</div>` of the `ProductList` wrapper with the following. Add mode keeps the search field; view mode drops it, since there is nothing to search, and renders the layer panel instead:
+
+```tsx
+          {mode === "add" ? (
+            <div className="shrink-0 px-5 pb-3">
+              <div className="relative">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search products…"
+                  aria-label="Search products to add"
+                  className="w-full rounded-pill border border-border bg-surface py-2 pl-4 pr-9 text-sm text-ink outline-none transition-colors duration-150 placeholder:text-textFaint focus-visible:ring-2 focus-visible:ring-accent"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuery("");
+                      inputRef.current?.focus();
+                    }}
+                    aria-label="Clear search"
+                    className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-textMuted transition-colors duration-150 hover:bg-chip hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              {showTarget && (
+                <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.8px] text-textMuted">
+                  Adding to Look {look}
+                </p>
+              )}
+            </div>
+          ) : (
+            showTarget && (
+              <p className="shrink-0 px-5 pb-3 text-[11px] font-bold uppercase tracking-[0.8px] text-textMuted">
+                Look {look}
+              </p>
+            )
+          )}
+
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {mode === "add" ? (
+              <ProductList
+                products={results}
+                onSelect={setSelectedProduct}
+                tryOnAsLink={false}
+                look={look}
+                singleAdd
+                addLabel="Add"
+              />
+            ) : (
+              <div className="px-5 pb-4">
+                <LayerPanel look={look} />
+              </div>
+            )}
+          </div>
+```
+
+- [ ] **Step 5: Verify**
+
+Run: `npm run lint && npm test`
+Expected: both pass. `npm run typecheck` will fail on `TryOnView`, which does not pass the new required `mode` prop until Task 8 — that single error is expected here. Report it; do not edit `TryOnView` in this task.
+
+---
+
+### Task 7: The look bar
+
+Replace `AddProductBar` with `LookBar`: one control per look, split into a label region that opens the view drawer and a `＋` that opens the add drawer.
+
+**Files:**
+- Delete: `src/components/tryon/AddProductBar.tsx`
+- Create: `src/components/tryon/LookBar.tsx`
+
+**Interfaces:**
+- Consumes: nothing.
+- Produces: `<LookBar showBoth={boolean} activeLook={LookId} bothEnabled={boolean} hasProducts={boolean} onView={(look: LookId) => void} onAdd={(look: LookId) => void} />`. Task 8 mounts it.
+
+- [ ] **Step 1: Delete the superseded component**
+
+Delete `src/components/tryon/AddProductBar.tsx`. Task 8 removes its last import.
+
+- [ ] **Step 2: Write `LookBar`**
+
+Create `src/components/tryon/LookBar.tsx`:
+
+```tsx
+"use client";
+
+import type { LookId } from "@/lib/tryon/session";
+
+type Props = {
+  /** Render one control per look; false shows the single-look control. */
+  showBoth: boolean;
+  /** The look currently editable — the only one whose `＋` is live when `bothEnabled` is false. */
+  activeLook: LookId;
+  /** Split view keeps every `＋` live; single view disables the inactive look's. */
+  bothEnabled: boolean;
+  /** Single-look only: whether `activeLook` has anything to view yet. */
+  hasProducts: boolean;
+  onView: (look: LookId) => void;
+  onAdd: (look: LookId) => void;
+};
+
+// A pill split into two tap targets: a wide label and a trailing `＋`.
+const PILL = "flex items-stretch overflow-hidden rounded-pill bg-chip";
+const LABEL =
+  "flex-1 truncate px-4 py-2.5 text-left text-xs font-semibold text-ink transition-colors duration-150 hover:bg-chip-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent";
+const PLUS =
+  "flex w-10 shrink-0 items-center justify-center border-l border-border text-sm font-bold text-ink transition-colors duration-150 hover:bg-chip-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent";
+
+/**
+ * Phone-width replacement for the inline search bar AND the Active Layers
+ * container, which is hidden below `md` because a tall photo/camera preview
+ * pushes it off the bottom of the screen. Tapping a look's label opens its
+ * applied products; tapping its `＋` opens the catalog to add to it.
+ *
+ * Once Look B exists both controls stay put even back in single view — leaving
+ * split view should not make a control vanish and reflow the row. Viewing does
+ * not require edit rights, so only the inactive look's `＋` goes inactive.
+ */
+export function LookBar({
+  showBoth,
+  activeLook,
+  bothEnabled,
+  hasProducts,
+  onView,
+  onAdd,
+}: Props) {
+  if (!showBoth) {
+    // Nothing applied yet: there is nothing to view, so the whole control adds.
+    if (!hasProducts) {
+      return (
+        <button
+          type="button"
+          onClick={() => onAdd(activeLook)}
+          data-testid="add-products-button"
+          className="w-full rounded-pill bg-chip px-4 py-2.5 text-xs font-semibold text-ink transition-colors duration-150 hover:bg-chip-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          + Add Products
+        </button>
+      );
+    }
+    return (
+      <div className={PILL}>
+        <button
+          type="button"
+          onClick={() => onView(activeLook)}
+          data-testid="view-products-button"
+          className={LABEL}
+        >
+          View Products
+        </button>
+        <button
+          type="button"
+          onClick={() => onAdd(activeLook)}
+          aria-label="Add products"
+          data-testid="add-products-button"
+          className={PLUS}
+        >
+          ＋
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex gap-2">
+      {(["A", "B"] as const).map((lk) => {
+        const addDisabled = !bothEnabled && lk !== activeLook;
+        return (
+          <div key={lk} className={`${PILL} flex-1`}>
+            <button
+              type="button"
+              onClick={() => onView(lk)}
+              data-testid={`view-products-${lk.toLowerCase()}`}
+              className={LABEL}
+            >
+              Look {lk}
+            </button>
+            <button
+              type="button"
+              disabled={addDisabled}
+              title={addDisabled ? `Swap to edit Look ${lk}` : undefined}
+              onClick={() => onAdd(lk)}
+              aria-label={`Add products to Look ${lk}`}
+              data-testid={`add-products-${lk.toLowerCase()}`}
+              className={PLUS}
+            >
+              ＋
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+```
+
+- [ ] **Step 3: Verify**
+
+Run: `npm run lint`
+Expected: passes. `npm run typecheck` will still fail on `TryOnView`'s now-dangling `AddProductBar` import until Task 8 — that is expected here.
+
+---
+
+### Task 8: Wire the look bar and drawer modes into `TryOnView`
+
+Mount `LookBar`, hold the drawer's target *and* mode, hide the Active Layers container below `md`, and fix the stale `swapped` flag.
+
+**Files:**
+- Modify: `src/components/tryon/TryOnView.tsx` — imports, state, a new effect, the trigger row, the layers container, the drawer mount
+
+**Interfaces:**
+- Consumes: `<LookBar …>` from Task 7, `<ProductDrawer … mode={…}>` from Task 6.
+- Produces: terminal task.
+
+- [ ] **Step 1: Fix the imports**
+
+In `src/components/tryon/TryOnView.tsx`, replace the `AddProductBar` import with `LookBar`. The `ProductSearchBar` and `ProductDrawer` imports stay:
+
+```tsx
+import { LookBar } from "./LookBar";
+```
+
+Also add `useEffect` to the React import, so it reads:
+
+```tsx
+import { useEffect, useState } from "react";
+```
+
+- [ ] **Step 2: Replace the drawer state with target + mode**
+
+Replace the `const [drawerLook, setDrawerLook] = useState<LookId | null>(null);` line with a single object, so the two can never disagree:
+
+```tsx
+  // Which look the phone-width drawer targets and what it is showing; null when closed.
+  const [drawer, setDrawer] = useState<{ look: LookId; mode: "add" | "view" } | null>(null);
+```
+
+- [ ] **Step 3: Reset the stale swap target**
+
+Add this effect directly below the `drawer` state declaration:
+
+```tsx
+  // `swapped` points at Look B, and the swap control only renders while Look B
+  // has layers. Clearing Look B while swapped would otherwise strand the tab on
+  // an empty look with no way back.
+  useEffect(() => {
+    if (swapped && looks.B.length === 0) setSwapped(false);
+  }, [swapped, looks.B.length]);
+```
+
+- [ ] **Step 4: Swap the trigger row for the look bar**
+
+Replace the `md:hidden` wrapper that currently renders `AddProductBar` with:
+
+```tsx
+          <div className="shrink-0 md:hidden">
+            <LookBar
+              showBoth={viewMode === "split" || hasB}
+              activeLook={activeLook}
+              bothEnabled={viewMode === "split"}
+              hasProducts={looks[activeLook].length > 0}
+              onView={(look) => setDrawer({ look, mode: "view" })}
+              onAdd={(look) => setDrawer({ look, mode: "add" })}
+            />
+          </div>
+```
+
+Leave the sibling `hidden shrink-0 md:block` wrapper holding `ProductSearchBar` exactly as it is.
+
+- [ ] **Step 5: Hide the Active Layers container below `md`**
+
+The layers block renders one of two branches. On the split/both branch, change `className="flex min-h-0 flex-1 gap-3"` to:
+
+```tsx
+            <div className="hidden min-h-0 flex-1 gap-3 md:flex">
+```
+
+On the single-look branch, change `className="flex min-h-0 flex-1 flex-col rounded-card border border-border p-3"` to:
+
+```tsx
+            <div className="hidden min-h-0 flex-1 flex-col rounded-card border border-border p-3 md:flex">
+```
+
+Everything inside both branches is unchanged — below `md` the same content is reachable through the drawer's view mode.
+
+- [ ] **Step 6: Mount the drawer with its mode**
+
+Replace the `{drawerLook && ( … )}` block with:
+
+```tsx
+      {drawer && (
+        <ProductDrawer
+          products={products}
+          look={drawer.look}
+          mode={drawer.mode}
+          showTarget={viewMode === "split" || hasB}
+          onClose={() => setDrawer(null)}
+        />
+      )}
+```
+
+- [ ] **Step 7: Verify**
+
+Run: `npm run typecheck && npm run lint && npm test`
+Expected: all pass, including the errors Tasks 6 and 7 deliberately deferred to this task.
+
+Browser verification is run by the controller.

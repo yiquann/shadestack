@@ -11,11 +11,22 @@ type Props = {
   // it should just add without a same-page navigation.
   asLink?: boolean;
   look?: LookId;
+  // The mobile drawer is opened already targeting one look, so it opts out of
+  // the split-view + A / + B pair and shows a single button aimed at `look`.
+  singleAdd?: boolean;
+  addLabel?: string;
 };
 
-export function ProductCard({ product, onSelect, asLink = true, look = "A" }: Props) {
+export function ProductCard({
+  product,
+  onSelect,
+  asLink = true,
+  look = "A",
+  singleAdd = false,
+  addLabel = "Try On",
+}: Props) {
   const { addProduct, mode } = useTryOnSession();
-  const splitAdd = !asLink && mode === "split";
+  const splitAdd = !asLink && !singleAdd && mode === "split";
   const tryOnClass =
     "shrink-0 rounded-pill bg-chip px-3 py-2 text-xs font-semibold text-ink transition-colors duration-150 hover:bg-chip-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
 

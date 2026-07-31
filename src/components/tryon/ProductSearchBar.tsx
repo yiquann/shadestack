@@ -74,7 +74,11 @@ export function ProductSearchBar({ products, activeLook }: Props) {
       )}
 
       {selectedProduct && (
-        <ProductDetailSheet product={selectedProduct} onClose={() => setSelectedProduct(null)} />
+        <ProductDetailSheet
+          product={selectedProduct}
+          look={activeLook}
+          onClose={() => setSelectedProduct(null)}
+        />
       )}
     </div>
   );

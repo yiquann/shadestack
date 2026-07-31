@@ -7,9 +7,12 @@ import { SimilarCarousel } from "./SimilarCarousel";
 import { useTryOnSession } from "@/lib/tryon/TryOnSessionContext";
 import { useSaved } from "@/lib/saved/SavedContext";
 
+import type { LookId } from "@/lib/tryon/session";
 type Props = {
   product: CatalogProduct;
   onClose: () => void;
+  /** Which look "Try On" adds to. Defaults to Look A for catalog surfaces (Discover, Saved) that have no look context. */
+  look?: LookId;
 };
 
 export function ProductDetailSheet({ product, onClose }: Props) {

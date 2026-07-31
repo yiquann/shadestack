@@ -7,9 +7,18 @@ type Props = {
   onSelect: (product: CatalogProduct) => void;
   tryOnAsLink?: boolean;
   look?: LookId;
+  singleAdd?: boolean;
+  addLabel?: string;
 };
 
-export function ProductList({ products, onSelect, tryOnAsLink = true, look }: Props) {
+export function ProductList({
+  products,
+  onSelect,
+  tryOnAsLink = true,
+  look,
+  singleAdd,
+  addLabel,
+}: Props) {
   if (products.length === 0) {
     return (
       <p className="px-5 py-8 text-center text-sm text-textMuted">No products found</p>
@@ -25,6 +34,8 @@ export function ProductList({ products, onSelect, tryOnAsLink = true, look }: Pr
           onSelect={onSelect}
           asLink={tryOnAsLink}
           look={look}
+          singleAdd={singleAdd}
+          addLabel={addLabel}
         />
       ))}
     </div>

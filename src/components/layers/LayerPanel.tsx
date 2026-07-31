@@ -9,9 +9,11 @@ import { LayerRow } from "./LayerRow";
 
 type Props = {
   look: LookId;
+  /** Suppresses the built-in "Active Layers" heading when a caller (e.g. the drawer) supplies its own. */
+  hideHeading?: boolean;
 };
 
-export function LayerPanel({ look }: Props) {
+export function LayerPanel({ look, hideHeading }: Props) {
   const { looks, moveLayer } = useTryOnSession();
   const layers = looks[look];
   const topFirst = [...layers].reverse();
@@ -26,9 +28,11 @@ export function LayerPanel({ look }: Props) {
 
   return (
     <section>
-      <h2 className="text-[11px] font-bold uppercase tracking-[0.8px] text-textMuted">
-        Active Layers
-      </h2>
+      {!hideHeading && (
+        <h2 className="text-[11px] font-bold uppercase tracking-[0.8px] text-textMuted">
+          Active Layers
+        </h2>
+      )}
       {layers.length === 0 ? (
         <p data-testid="active-layers-empty" className="mt-3 text-sm text-textMuted">
           No products applied yet — add one below to start your look.
