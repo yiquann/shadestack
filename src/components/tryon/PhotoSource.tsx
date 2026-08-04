@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFaceLandmarks } from "@/lib/facemesh/useFaceLandmarks";
 import { RenderCanvas, type RenderLooks } from "./RenderCanvas";
 import { BeforeAfterOverlay } from "./BeforeAfterOverlay";
+import { LookPills } from "./LookPills";
 import { fitWidth, useFitHeight } from "@/lib/tryon/useFitHeight";
 import { rasterSize } from "@/lib/facemesh/rasterSize";
 import { getImageSegmenter } from "@/lib/segment/imageSegmenter";
@@ -124,39 +125,9 @@ export function PhotoSource({ looks }: Props) {
       {url ? (
         // Keyed by url so a new photo remounts the detection hook fresh,
         // rather than showing the previous photo's stale landmark result.
-        <PhotoPreview key={url} url={url} looks={looks} />
+        <PhotoPreview key={url} url={url} looks={looks} onClear={() => setUrl(null)} />
       ) : (
-        <div className="flex flex-col items-center gap-4 rounded-card border border-border bg-surface px-6 py-10 text-center">
-          {reloadedDuringPick ? (
-            <p className="max-w-xs text-xs text-textSecondary">
-              Your browser reloaded this page while the photo picker was open, so the
-              photo was lost. Picking a smaller photo usually avoids it.
-            </p>
-          ) : (
-            <p className="max-w-xs text-xs text-textMuted">
-              Use a well-lit selfie with no makeup for the most accurate try-on results.
-            </p>
-          )}
-          <button
-            type="button"
-            onClick={openPicker}
-            className="rounded-pill bg-accent px-5 py-2 text-xs font-semibold text-surface transition-colors duration-150 hover:bg-accent-hover"
-          >
-            {reloadedDuringPick ? "Try again" : "Upload a photo"}
-          </button>
-        </div>
-      )}
-
-      {url && (
-        <div className="mt-3 flex shrink-0 items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={openPicker}
-            className="rounded-pill bg-chip px-4 py-2 text-xs font-semibold text-textSecondary transition-colors duration-150 hover:bg-chip-hover hover:text-ink"
-          >
-            Choose another photo
-          </button>
-        </div>
+        <PhotoPrompt reloadedDuringPick={reloadedDuringPick} onPick={openPicker} />
       )}
 
       <input
@@ -170,7 +141,95 @@ export function PhotoSource({ looks }: Props) {
   );
 }
 
-function PhotoPreview({ url, looks }: { url: string; looks: RenderLooks }) {
+/**
+ * Detection status, overlaid on the photo rather than placed in the layout.
+ *
+ * It used to be a reserved 24px line outside the frame, so that "Analyzing
+ * photo…" appearing and clearing could not resize the photo. That reservation
+ * was the entire reason the photo frame came out smaller than the camera's:
+ * width here derives from the measured free height, so 24px off the height cost
+ * 18px of width too, and the two sources no longer occupied the same box.
+ *
+ * Overlaying keeps both properties — identical geometry to CameraSource, and no
+ * resize when the status changes. It only ever renders while detection has not
+ * succeeded, and the before/after labels that share this corner only appear once
+ * it has, so the two can never collide.
+ */
+function StatusOverlay({ children }: { children?: React.ReactNode }) {
+  if (!children) return null;
+  return (
+    // right-14 rather than a symmetric inset: it keeps the longest message
+    // ("No face detected — try a clearer, front-facing selfie.") clear of the
+    // remove-photo ✕ in the corner, and w-fit + mx-auto still centres shorter
+    // ones within the band that leaves.
+    <p className="pointer-events-none absolute left-2 right-14 top-2 z-30 mx-auto w-fit rounded-pill bg-ink/70 px-3 py-1.5 text-center text-xs text-surface backdrop-blur-sm">
+      {children}
+    </p>
+  );
+}
+
+/**
+ * Empty state. Deliberately the same aspect-locked box as PhotoPreview's, sized
+ * from the same measured free height, so picking a photo drops it straight into
+ * the outline that was already on screen instead of resizing the preview.
+ */
+function PhotoPrompt({
+  reloadedDuringPick,
+  onPick,
+}: {
+  reloadedDuringPick: boolean;
+  onPick: () => void;
+}) {
+  const fitRef = useRef<HTMLDivElement>(null);
+  const availableHeight = useFitHeight(fitRef);
+
+  return (
+    <div className="flex min-h-0 w-full flex-1 flex-col items-center">
+      {/* items-end, not items-center: the box is aspect-locked, so when the
+          column's width is the binding constraint there is leftover height. It
+          all pools above the box so the frame's lower edge sits on the dock
+          boundary — the same edge the loaded preview lands on, which is what
+          keeps the layout from shifting when a photo arrives. */}
+      <div ref={fitRef} className="flex min-h-0 w-full flex-1 items-end justify-center">
+        <div
+          className="mx-auto flex flex-col items-center justify-center gap-4 overflow-hidden rounded-card border border-dashed border-border bg-surface px-6 text-center"
+          style={{
+            aspectRatio: `${PREVIEW_RATIO_W} / ${PREVIEW_RATIO_H}`,
+            width: fitWidth(availableHeight, PREVIEW_RATIO_W, PREVIEW_RATIO_H),
+          }}
+        >
+          {reloadedDuringPick ? (
+            <p className="max-w-xs text-xs text-textSecondary">
+              Your browser reloaded this page while the photo picker was open, so the
+              photo was lost. Picking a smaller photo usually avoids it.
+            </p>
+          ) : (
+            <p className="max-w-xs text-xs text-textMuted">
+              Use a well-lit selfie with no makeup for the most accurate try-on results.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={onPick}
+            className="rounded-pill bg-accent px-6 py-2.5 text-sm font-semibold text-surface transition-colors duration-150 hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+          >
+            {reloadedDuringPick ? "Try again" : "Upload a photo"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PhotoPreview({
+  url,
+  looks,
+  onClear,
+}: {
+  url: string;
+  looks: RenderLooks;
+  onClear: () => void;
+}) {
   const imageRef = useRef<HTMLImageElement>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null);
@@ -240,7 +299,9 @@ function PhotoPreview({ url, looks }: { url: string; looks: RenderLooks }) {
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col items-center">
-      <div ref={fitRef} className="flex min-h-0 w-full flex-1 items-center justify-center">
+      {/* items-end: leftover height pools above, so the frame's lower edge lands
+          on the dock boundary. See the matching note in PhotoPrompt. */}
+      <div ref={fitRef} className="flex min-h-0 w-full flex-1 items-end justify-center">
         <div
           ref={containerRef}
           className="relative mx-auto overflow-hidden rounded-card bg-ink"
@@ -280,21 +341,41 @@ function PhotoPreview({ url, looks }: { url: string; looks: RenderLooks }) {
             ) : (
               afterLayer
             ))}
+          <button
+            type="button"
+            onClick={onClear}
+            aria-label="Remove photo"
+            title="Remove photo"
+            // Above the before/after overlay (z-20 surface, z-30 labels) so it
+            // stays tappable while comparing; dropped below the "After" pill in
+            // that mode rather than sitting on top of it.
+            className={`absolute right-2 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-ink/55 text-surface backdrop-blur-sm transition-colors duration-150 hover:bg-ink/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+              comparing ? "top-11" : "top-2"
+            }`}
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+          <LookPills looks={looks} />
+          <StatusOverlay>
+            {state.status === "loading" && "Analyzing photo…"}
+            {state.status === "no-face" &&
+              "No face detected — try a clearer, front-facing selfie."}
+            {state.status === "error" && `Could not analyze photo: ${state.message}`}
+          </StatusOverlay>
         </div>
       </div>
-      {state.status === "loading" && (
-        <p className="mt-2 shrink-0 text-center text-xs text-textMuted">Analyzing photo…</p>
-      )}
-      {state.status === "no-face" && (
-        <p className="mt-2 shrink-0 text-center text-xs text-textMuted">
-          No face detected — try a clearer, front-facing selfie.
-        </p>
-      )}
-      {state.status === "error" && (
-        <p className="mt-2 shrink-0 text-center text-xs text-textMuted">
-          Could not analyze photo: {state.message}
-        </p>
-      )}
     </div>
   );
 }
