@@ -20,7 +20,7 @@ type Props = {
 type Selection = LookId | "both";
 
 const SEGMENT_BASE =
-  "flex-1 rounded-pill px-3 py-2 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+  "flex-1 rounded-pill px-4 py-2.5 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
 // text-base (16px): under 16px iOS Safari auto-zooms the page on focus — which
 // is especially disruptive here, inside a bottom sheet.
