@@ -6,11 +6,24 @@ import { createCompositeRenderer, type CompositeRenderer, type Layer } from "@/l
 import { buildGlLayers } from "@/lib/webgl/glLayers";
 import { midlineEndpoints, fullSpanMidline } from "@/lib/facemesh/midline";
 import { buildHalfMask } from "@/lib/webgl/regionMask";
-import type { AppliedLayer } from "@/lib/tryon/session";
+import type { AppliedLayer, LookId } from "@/lib/tryon/session";
 
 export type RenderLooks =
   | { mode: "single"; layers: AppliedLayer[]; compare: boolean }
-  | { mode: "split"; left: AppliedLayer[]; right: AppliedLayer[]; divider: boolean };
+  | {
+      mode: "split";
+      left: AppliedLayer[];
+      right: AppliedLayer[];
+      divider: boolean;
+      /**
+       * Which look each half is showing. The renderer itself does not need
+       * these — it only composites `left` and `right` — but LookPills labels the
+       * halves from them, and they must be filled from the same expression that
+       * chose the layer arrays or the label can disagree with the face.
+       */
+      leftLook: LookId;
+      rightLook: LookId;
+    };
 
 type Props = {
   image: HTMLImageElement;
