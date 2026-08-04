@@ -22,8 +22,8 @@ const HEIGHT_FRACTION = 0.5;
 
 /** …but never less than enough to show this many product rows at once. */
 const VISIBLE_ROWS = 4;
-/** One ProductCard: `min-h-[94px]`, border included (border-box). */
-const ROW_HEIGHT = 94;
+/** One ProductCard: `min-h-[100px]`, border included (border-box). */
+export const ROW_HEIGHT = 100;
 /**
  * Everything stacked above the list: the 24px gripper, the 54px search field
  * block, and the 24px "Adding to Look B" caption. The caption only renders when
