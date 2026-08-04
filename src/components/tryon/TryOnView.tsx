@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CatalogProduct } from "@/lib/catalog/types";
 import type { LookId, ViewMode } from "@/lib/tryon/session";
 import { useTryOnSession } from "@/lib/tryon/TryOnSessionContext";
@@ -11,22 +11,22 @@ import { CameraSource } from "./CameraSource";
 import type { RenderLooks } from "./RenderCanvas";
 import { LayerPanel } from "@/components/layers/LayerPanel";
 import { ProductSearchBar } from "./ProductSearchBar";
-import { LookBar } from "./LookBar";
 import { ProductDrawer } from "./ProductDrawer";
 import type { FacingMode } from "@/lib/facemesh/cameraHelpers";
-import { SplitControls } from "./SplitControls";
+import { TryOnDock } from "./TryOnDock";
+import { dockActions, entryHighlight, lookSlots, primaryLook } from "@/lib/tryon/dockState";
 import { SaveLookSheet } from "./SaveLookSheet";
 import { useSaved } from "@/lib/saved/SavedContext";
-
-const ICON_BTN =
-  "flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
 type Props = {
   products: CatalogProduct[];
 };
 
+/** Mirrors the `chipHighlight` animation in globals.css — keep the two in step. */
+const HIGHLIGHT_MS = 1200;
+
 export function TryOnView({ products }: Props) {
-  const { looks, clearLook, mode: viewMode, setMode: setViewMode, source, setSource } =
+  const { looks, mode: viewMode, setMode: setViewMode, source, setSource } =
     useTryOnSession();
   const { saveLook } = useSaved();
   const [showSaveSheet, setShowSaveSheet] = useState(false);
@@ -38,33 +38,60 @@ export function TryOnView({ products }: Props) {
   // before/after comparison, which is opt-in.
   const [divider, setDivider] = useState(true);
   const [compare, setCompare] = useState(false);
+  // Which look chip is briefly ringed after entering split view; see
+  // entryHighlight. Held in state rather than left to the CSS animation so the
+  // class is actually removed afterwards and a second switch can replay it.
+  const [highlight, setHighlight] = useState<LookId | null>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    },
+    []
+  );
 
-  // Look B only exists once the user has added to it (via split). Until then,
-  // single view is just one "Look" and there's nothing to swap between.
   const hasA = looks.A.length > 0;
   const hasB = looks.B.length > 0;
-  // The swap control only renders while Look B has layers, so if Look B is
-  // cleared while swapped, fall back to A rather than stranding the tab on an
-  // empty look with no way back to the one on screen.
-  const activeLook: LookId = swapped && hasB ? "B" : "A";
+  // Swapping is a split-view action now, so `swapped` can only ever be true in
+  // split; single view therefore falls through to the look that actually has
+  // products (see primaryLook — Look B alone is a reachable state, and
+  // rendering a bare face there would look like the app had lost them).
+  const activeLook: LookId = viewMode === "split" && swapped ? "B" : primaryLook(looks);
+  const actions = dockActions(viewMode, looks);
+  const slots = lookSlots(viewMode, looks, swapped);
+  // A chip the user can open but not add to — the dimmed Look B in single view.
+  const isDimmed = (look: LookId) => slots.some((s) => s.look === look && !s.live);
 
-  const left = swapped ? looks.B : looks.A;
-  const right = swapped ? looks.A : looks.B;
+  // One expression decides which look each half shows; the layers and the pill
+  // label are both read off it, so they cannot drift apart on a swap.
+  const leftLook: LookId = swapped ? "B" : "A";
+  const rightLook: LookId = swapped ? "A" : "B";
   const renderLooks: RenderLooks =
     viewMode === "split"
-      ? { mode: "split", left, right, divider }
+      ? {
+          mode: "split",
+          left: looks[leftLook],
+          right: looks[rightLook],
+          divider,
+          leftLook,
+          rightLook,
+        }
       : { mode: "single", layers: looks[activeLook], compare };
-  const hasLayers =
-    viewMode === "split"
-      ? looks.A.length > 0 || looks.B.length > 0
-      : looks[activeLook].length > 0;
   const facingMode: FacingMode = "user";
 
   // Switching view always resets to the unswapped default: single lands on
-  // Look A, split puts Look A on the left / Look B on the right.
+  // Look A, split puts Look A on the left / Look B on the right. Nothing is
+  // moved or reassigned in either direction, and there is no confirmation
+  // prompt — the highlight below is the whole of the feedback.
   function handleViewModeChange(next: ViewMode) {
     setSwapped(false);
     setViewMode(next);
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    const flagged = next === "split" ? entryHighlight(looks) : null;
+    setHighlight(flagged);
+    if (flagged) {
+      highlightTimer.current = setTimeout(() => setHighlight(null), HIGHLIGHT_MS);
+    }
   }
 
   return (
@@ -80,134 +107,73 @@ export function TryOnView({ products }: Props) {
       </div>
 
       <div className="mt-4 flex min-h-0 flex-1 flex-col gap-4 md:flex-row">
-        {/* Left: face preview + controls. The preview is the only flexible row —
-            it absorbs whatever height the controls below it don't need, so it
-            shrinks on short viewports instead of pushing them out of the
-            overflow-hidden frame and behind the tab bar. */}
-        <div className="flex min-h-0 flex-1 flex-col items-center gap-3 md:w-[34%] md:flex-none">
+        {/* Left: the stage over the dock. The preview is still the only flexible
+            row, so nothing can ever be pushed out of the overflow-hidden frame
+            and behind the tab bar — but on phones the dock below it is now a
+            fixed height, so "whatever is left over" is a constant rather than
+            something that shrinks each time a control appears. */}
+        <div className="flex min-h-0 flex-1 flex-col items-center md:w-[34%] md:flex-none">
+          {/* The stage. The only flexible row in the column: with the dock below
+              it pinned to a constant height, the space left over here is
+              constant too, so the preview keeps exactly one size for the whole
+              session. */}
           <div className="flex min-h-0 w-full flex-1 justify-center">
             {source === "model" && <FaceMeshTracker looks={renderLooks} />}
             {source === "photo" && <PhotoSource looks={renderLooks} />}
             {source === "camera" && <CameraSource looks={renderLooks} facingMode={facingMode} />}
           </div>
 
-          <div className="flex shrink-0 items-center justify-center gap-2">
-            {hasLayers && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (viewMode === "split") {
-                    clearLook("A");
-                    clearLook("B");
-                  } else {
-                    clearLook(activeLook);
-                  }
-                }}
-                data-testid="clear-look-button"
-                className="rounded-pill border border-border px-4 py-2 text-xs font-semibold text-textSecondary transition-colors duration-150 hover:bg-chip/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                Clear Look
-              </button>
-            )}
-            {hasLayers && (
-              <button
-                type="button"
-                onClick={() => setShowSaveSheet(true)}
-                className="rounded-pill bg-chip px-4 py-2 text-xs font-semibold text-ink transition-colors duration-150 hover:bg-chip-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                Save Look
-              </button>
-            )}
-            {(viewMode === "split" || (viewMode === "single" && hasB)) && (
-              <button
-                type="button"
-                onClick={() => setSwapped((s) => !s)}
-                aria-label={viewMode === "split" ? "Swap sides" : "Swap look"}
-                title="Swap"
-                className={`${ICON_BTN} bg-chip text-textSecondary hover:bg-chip-hover hover:text-ink`}
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden
-                >
-                  <path d="M4 9h12M16 9l-3-3M16 9l-3 3M20 15H8M8 15l3-3M8 15l3 3" />
-                </svg>
-              </button>
-            )}
-            {(viewMode === "split" || (viewMode === "single" && hasLayers)) && (
-              <button
-                type="button"
-                onClick={() =>
-                  viewMode === "split"
-                    ? setDivider((d) => !d)
-                    : setCompare((c) => !c)
-                }
-                aria-pressed={viewMode === "split" ? divider : compare}
-                aria-label={viewMode === "split" ? "Toggle divider" : "Toggle before and after"}
-                title={viewMode === "split" ? "Divider" : "Before / after"}
-                className={`${ICON_BTN} ${
-                  (viewMode === "split" ? divider : compare)
-                    ? "bg-ink text-surface"
-                    : "bg-chip text-textSecondary hover:bg-chip-hover hover:text-ink"
-                }`}
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden
-                >
-                  <rect x="4" y="5" width="16" height="14" rx="2" />
-                  <path d="M12 5v14" />
-                </svg>
-              </button>
-            )}
-          </div>
+          {/* The dock: everything below the preview, at a locked height on
+              phones (see --dock-h).
 
-          <div className="w-full shrink-0">
-            <SplitControls
+              Deliberately undecorated — no rule, no background shift. The
+              boundary is still structurally there and still reserves exactly the
+              same space whether or not it is full; it is just not drawn. The
+              preview above bottom-aligns onto that same edge, so the frame's
+              lower edge is what marks the division and a second painted line
+              would only sit under it.
+
+              The negative bottom margin cancels main's own bottom padding on
+              phones, so the dock's lower edge meets the tab bar exactly. Without
+              it that padding would sit below row 2 and make the gap under the
+              look slots larger than the one above row 1 — and it would cost the
+              preview those pixels for nothing.
+
+              md+ opts out — that layout has its own side panels and its controls
+              have never been the thing squeezing the preview. */}
+          <div className="-mb-2 flex h-[var(--dock-h)] w-full shrink-0 flex-col items-center justify-center gap-3 md:mb-0 md:h-auto md:pt-3">
+            <TryOnDock
               viewMode={viewMode}
               onModeChange={handleViewModeChange}
-              swapped={swapped}
-              hasB={hasB}
+              actions={actions}
+              orientationOn={viewMode === "split" ? divider : compare}
+              onOrientation={() =>
+                viewMode === "split" ? setDivider((d) => !d) : setCompare((c) => !c)
+              }
+              onSwap={() => setSwapped((s) => !s)}
+              onSave={() => setShowSaveSheet(true)}
+              slots={slots}
+              onViewLook={(look) => setDrawer({ look, mode: "view" })}
+              onAddLook={(look) => setDrawer({ look, mode: "add" })}
+              highlight={highlight}
             />
           </div>
         </div>
 
-        {/* Right: search-to-add bar + the Active Layers stack. On phones this is
-            just the LookBar and it must never be the row that gets squeezed —
-            shrink-0 keeps it at its natural height so the preview above yields
-            instead. On md+ it becomes the panel column and fills the rest. */}
-        <div className="flex min-h-0 shrink-0 flex-col gap-3 md:min-h-0 md:flex-1">
-          <div className="shrink-0 md:hidden">
-            <LookBar
-              showBoth={viewMode === "split" || hasB}
-              activeLook={activeLook}
-              bothEnabled={viewMode === "split"}
-              hasProducts={looks[activeLook].length > 0}
-              onView={(look) => setDrawer({ look, mode: "view" })}
-              onAdd={(look) => setDrawer({ look, mode: "add" })}
-            />
-          </div>
-          <div className="hidden shrink-0 md:block">
+        {/* Right: the md+ panel column — search-to-add bar plus the Active
+            Layers stack. Phones have no use for it now that the Look bar has
+            moved into the dock, and an empty flex item there would still cost
+            the parent's gap-4, taken straight off the preview. */}
+        <div className="hidden min-h-0 shrink-0 flex-col gap-3 md:flex md:min-h-0 md:flex-1">
+          <div className="shrink-0">
             <ProductSearchBar products={products} activeLook={activeLook} />
           </div>
           {viewMode === "split" || hasB ? (
             // Split shows both looks editable. Single-with-B shows both too, but
-            // only the active look is editable; the other is disabled until the
-            // user swaps to it.
+            // only the rendered look is editable; the other is disabled until
+            // the user switches to split. (Swapping used to be the way back to
+            // it — that is a split-only action now, so the hint below says
+            // "switch to Split", not "swap".)
             <div className="hidden min-h-0 flex-1 gap-3 md:flex">
               {(["A", "B"] as const).map((lk) => {
                 const isDisabled = viewMode === "single" && lk !== activeLook;
@@ -224,7 +190,7 @@ export function TryOnView({ products }: Props) {
                       Look {lk}
                       {isDisabled && (
                         <span className="ml-1 font-normal normal-case tracking-normal text-textFaint">
-                          · swap to edit
+                          · switch to Split to edit
                         </span>
                       )}
                     </h3>
@@ -250,14 +216,16 @@ export function TryOnView({ products }: Props) {
 
       {drawer && (
         <ProductDrawer
-          key={`${drawer.look}:${drawer.mode}`}
+          // Keyed on the look alone, not on the mode: Browse flips view -> add
+          // in place, and remounting there would replay the slideUp animation as
+          // though a second sheet had opened.
+          key={drawer.look}
           products={products}
           look={drawer.look}
           mode={drawer.mode}
           showTarget={viewMode === "split" || hasB}
-          readOnly={
-            drawer.mode === "view" && viewMode === "single" && drawer.look !== activeLook
-          }
+          readOnly={drawer.mode === "view" && isDimmed(drawer.look)}
+          onBrowse={(look) => setDrawer({ look, mode: "add" })}
           onClose={closeDrawer}
         />
       )}

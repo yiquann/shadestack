@@ -13,12 +13,58 @@
   --color-border: #EDE5DD;
   --color-surface: #FFFFFF;
 
-  /* Single source of truth for the bottom tab bar's footprint: BottomNav sizes
-     itself to it and full-height pages subtract it from 100dvh, so the content
-     frame ends exactly where the tabs begin. Previously both sides hardcoded
-     5rem against a nav that measured ~41px, leaving a dead strip above the bar.
-     Includes the iOS home-indicator inset so the tabs clear it. */
+  /* The one "pressed back" chip fill, used for BOTH hover and unavailable.
+     A control is either at rest (`chip`) or not (`chip-strong`) — one step, one
+     colour, so there is nothing to misread as a third state.
+
+     Deliberately a long way from `chip`: roughly 20 levels down per channel,
+     where `chip-hover` is about 11 and the earlier disabled grey about 12. Both
+     of those were too close to notice on device against a palette this warm and
+     this light. Desaturated and a touch cooler too, since "grey" is what reads
+     as inert here. */
+  --color-chip-strong: #DCD6D0;
+
+  /* Single source of truth for the bottom tab bar's footprint. BottomNav sizes
+     itself to it; the page above is the flex-1 sibling that takes whatever is
+     left, so the content frame ends exactly where the tabs begin.
+     Includes the iOS home-indicator inset so the tabs clear it.
+     Back to 3.5rem from a brief 4rem: the extra height was an attempt at the
+     "tabs sit too high" report and did not address it, and every pixel here is
+     taken straight off the camera/photo/model preview, which matters more. */
   --nav-h: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+
+  /* Cap on the dock's Single/Split toggle. A cap, not a fixed width: the toggle
+     shares row 1 with three icon buttons, so it takes what is left on a narrow
+     phone rather than pushing them off the edge. 200px is the ceiling before
+     the segments look stretched — it leaves each of Single / Split 94px against
+     ~77px of label.
+     Both dock rows are otherwise full-width, so they share their outer edges and
+     the dock reads as one block. */
+  --control-w: 200px;
+
+  /* Locked footprint of the phone dock — everything below the face preview.
+     The whole point is that this is a CONSTANT: the preview above is the flex-1
+     row that absorbs the remaining space, so as long as the dock cannot change
+     height, the preview cannot change size either. That is what stops the photo
+     shrinking when the user toggles Single/Split or applies their first product.
+
+     Deliberately not a `calc(100dvh - header - tabs - nav - ...)` expression for
+     the preview itself: every term in one of those is a guess at a real
+     element's height, and this codebase has been burned by exactly that twice —
+     see the `100dvh - 22rem` note in lib/tryon/useFitHeight.ts and the dvh
+     discussion on .app-shell below. One measured constant here lets the browser
+     derive the rest.
+
+     Now that the dock is two rows, its contents are a known 100px: a 44px row 1
+     (the mode toggle sets the height — its pill is slightly taller than the 40px
+     icon buttons beside it), the 12px row gap, and a 44px row 2.
+
+     124px total leaves 12px of slack, which the dock centres into 12px above
+     row 1 and 12px below row 2 — deliberately symmetric, so the gap between the
+     face and the buttons matches the gap between the look slots and the tab
+     bar. Every pixel added here comes straight off the preview, so the slack is
+     breathing room and nothing more. */
+  --dock-h: 7.75rem;
 
 }
 
@@ -36,8 +82,28 @@
   /* It sits inside body's own flex column; never let that shrink it. */
   flex-shrink: 0;
   overflow: hidden;
+  /* dvh: tracks the viewport for the browser's current chrome state, so the
+     shell follows the toolbar as it shows and hides. 100vh first as the
+     fallback for browsers without dvh.
+
+     Trade-off to know about: svh (the viewport at its smallest) was here
+     briefly and is what stopped the Look A/B row being pushed under the tab
+     bar. dvh can resolve to the *large* viewport — the height you would have
+     if the toolbars were collapsed — and this shell never scrolls the document
+     (overflow:hidden here, the page inside scrolls internally), so on iOS the
+     toolbars never actually collapse. Where dvh over-reports, the shell is
+     taller than the screen and main's last row is clipped again. If that
+     recurs, this line is the one to change back. */
   height: 100vh;
   height: 100dvh;
+  /* Reserves the strip the (fixed) tab bar occupies. Preflight puts every
+     element in border-box, so the page above still resolves to exactly
+     100dvh - nav-h and cannot run underneath the bar.
+     The bar itself is position:fixed rather than a flow sibling: in flow its
+     position is only as correct as this element's height, and on a real phone
+     that height is at the mercy of dvh and browser-chrome behaviour. Pinning it
+     to the viewport makes "at the bottom of the screen" true regardless. */
+  padding-bottom: var(--nav-h);
 }
 
 @theme inline {
@@ -52,6 +118,7 @@
   --color-textFaint: var(--color-text-faint);
   --color-border: var(--color-border);
   --color-surface: var(--color-surface);
+  --color-chip-strong: var(--color-chip-strong);
   --font-display: var(--font-display);
   --font-body: var(--font-body);
   --radius-card: 16px;
@@ -136,6 +203,39 @@ button:disabled {
   }
   to {
     transform: translateY(0);
+  }
+}
+
+/* Brief ring on the look chip that owns the products, when entering split view.
+   Holds at full strength for most of its run and then releases, so it reads as
+   "this one" rather than as a throb.
+
+   Duration is mirrored by HIGHLIGHT_MS in TryOnView, which clears the state that
+   applies this class — keep the two in step or the ring will either be cut off
+   or linger invisibly. Colour is `accent` at 60%; written literally because
+   keyframes cannot take a colour token through Tailwind's theme layer. */
+@keyframes chipHighlight {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(196, 145, 108, 0);
+  }
+  12%,
+  72% {
+    box-shadow: 0 0 0 3px rgba(196, 145, 108, 0.6);
+  }
+}
+
+.chip-highlight {
+  animation: chipHighlight 1.2s ease-out;
+}
+
+/* The ring is the message, not the motion — so reduced motion keeps the ring and
+   drops the animation. It still disappears on time, because the state driving
+   the class is cleared by the same timer either way. */
+@media (prefers-reduced-motion: reduce) {
+  .chip-highlight {
+    animation: none;
+    box-shadow: 0 0 0 3px rgba(196, 145, 108, 0.6);
   }
 }
 
