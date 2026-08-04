@@ -6,6 +6,7 @@ import type { CatalogProduct } from "@/lib/catalog/types";
 import type { LookId } from "@/lib/tryon/session";
 import { computeDrawerGeometry, resolveDrag } from "@/lib/tryon/drawerGeometry";
 import { useVisualViewport } from "@/lib/tryon/useVisualViewport";
+import { useTryOnSession } from "@/lib/tryon/TryOnSessionContext";
 import { ProductList } from "@/components/catalog/ProductList";
 import { searchProducts } from "@/components/catalog/filtering";
 import { ProductDetailSheet } from "@/components/detail/ProductDetailSheet";
@@ -21,6 +22,8 @@ type Props = {
   showTarget: boolean;
   /** Marks a look the user can view but not currently edit — e.g. the inactive look in single view when both looks are populated. */
   readOnly?: boolean;
+  /** Switch this drawer to the catalog for the same look. Drives the empty state's Browse button. */
+  onBrowse: (look: LookId) => void;
   onClose: () => void;
 };
 
@@ -35,6 +38,7 @@ export function ProductDrawer({
   mode,
   showTarget,
   readOnly = false,
+  onBrowse,
   onClose,
 }: Props) {
   const [query, setQuery] = useState("");
@@ -48,6 +52,14 @@ export function ProductDrawer({
   const metrics = useVisualViewport();
   const { bottomInset, height, hasScrim } = computeDrawerGeometry(metrics);
   const results = searchProducts(products, query);
+
+  // Clearing lives here rather than in the dock: this sheet already knows which
+  // slot it is editing, which is exactly what a dock-level "Clear Look" could
+  // not answer in split view. Per-product removal is the LayerRow ✕ below; this
+  // is the empty-it-all escape hatch.
+  const { looks, clearLook } = useTryOnSession();
+  const isEmpty = looks[look].length === 0;
+  const canClearAll = mode === "view" && !readOnly && !isEmpty;
 
   // Lock the page behind the sheet, and hand focus back to the trigger button
   // when it closes.
@@ -190,14 +202,31 @@ export function ProductDrawer({
               )}
             </div>
           ) : (
-            <p className="shrink-0 px-5 pb-3 text-[11px] font-bold uppercase tracking-[0.8px] text-textMuted">
-              {showTarget ? `Look ${look}` : "Active Layers"}
-              {readOnly && (
-                <span className="ml-1 font-normal normal-case tracking-normal text-textFaint">
-                  · swap to edit
-                </span>
+            // Clear all takes the top-left; the section label moves to the right
+            // of the same row, so the escape hatch costs no extra chrome height
+            // — which matters, because drawerGeometry budgets this space to keep
+            // four product rows visible. With nothing to clear the label is the
+            // only child and justify-between leaves it left, exactly as before.
+            <div className="flex shrink-0 items-center justify-between gap-3 px-5 pb-3">
+              {canClearAll && (
+                <button
+                  type="button"
+                  onClick={() => clearLook(look)}
+                  data-testid={`clear-all-${look.toLowerCase()}`}
+                  className="-ml-2 rounded-pill px-2 py-1 text-[11px] font-bold uppercase tracking-[0.8px] text-textSecondary transition-colors duration-150 hover:bg-chip hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  Clear all
+                </button>
               )}
-            </p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.8px] text-textMuted">
+                {showTarget ? `Look ${look}` : "Active Layers"}
+                {readOnly && (
+                  <span className="ml-1 font-normal normal-case tracking-normal text-textFaint">
+                    · switch to Split to edit
+                  </span>
+                )}
+              </p>
+            </div>
           )}
 
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -208,7 +237,6 @@ export function ProductDrawer({
                 tryOnAsLink={false}
                 look={look}
                 singleAdd
-                addLabel="Add"
               />
             ) : (
               <div
@@ -216,6 +244,21 @@ export function ProductDrawer({
                 inert={readOnly || undefined}
               >
                 <LayerPanel look={look} hideHeading />
+                {/* Opening a look with nothing in it otherwise dead-ends on the
+                    empty blurb: the only way on was to close the sheet and find
+                    the chip's ＋. This is that same action, in the place the
+                    user already is. Suppressed when read-only — nothing can be
+                    added to a look that is not on screen. */}
+                {isEmpty && !readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => onBrowse(look)}
+                    data-testid={`browse-products-${look.toLowerCase()}`}
+                    className="mt-4 rounded-pill bg-accent px-5 py-2.5 text-sm font-semibold text-surface transition-colors duration-150 hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                  >
+                    Browse products
+                  </button>
+                )}
               </div>
             )}
           </div>
