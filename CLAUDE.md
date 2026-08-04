@@ -94,6 +94,7 @@ API routes: `GET /api/products` (with `?category=&brand=&q=&finish=&coverage=&mi
 | `textFaint` | `#B8ADA5` | Empty states, inactive tab icons |
 | `border` | `#EDE5DD` | Hairline borders, outlined buttons |
 | `surface` | `#FFFFFF` | Cards |
+| `chipStrong` | `#DCD6D0` | The one "pressed back" chip fill, shared by **hover and unavailable** — a control is either at rest or it is not. Not from the prototype: the palette had no neutral, and `chipHover`'s step proved too small to register on device |
 | `darkGradient` | `linear-gradient(160deg, #1a1410, #0f0c08, #1a1410)` | Camera/photo backdrops, hero banner (`135deg, #1C1210 → #3B2518`) |
 
 ### Typography

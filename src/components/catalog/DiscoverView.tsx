@@ -29,8 +29,9 @@ export function DiscoverView({ products }: Props) {
     <>
       <PageTitle>Discover</PageTitle>
 
-      {/* Order down the page: title → hero → search → chips → list, each
-          separated by 16px (mt-4). A single column at every width now, since the
+      {/* Order down the page: title → hero → search → chips → list, separated by
+          16px (mt-4) down to the search field, then 12px either side of the chip
+          row. A single column at every width now, since the
           hero and the search bar both moved out of what used to be the
           right-hand column. These are direct flex children of <main>, which sets
           no gap of its own, so each section owns its own top margin.
@@ -63,14 +64,18 @@ export function DiscoverView({ products }: Props) {
         )}
       </div>
 
-      <div className="mt-4 shrink-0">
+      {/* mt-3, and mt-3 again on the list below: the chip row is the one band
+          that reads as a control strip rather than a section, so it sits tighter
+          to the search field above and the results below than the 16px rhythm
+          the rest of the page keeps. */}
+      <div className="mt-3 shrink-0">
         <CategoryChips active={activeCategory} onChange={setActiveCategory} />
       </div>
 
       {/* No card and no scroller of its own — the page itself scrolls (see
           <main>). -mx-5 lets each row's divider span the full width while the
           rows' own px-5 keeps their content aligned with everything above. */}
-      <div className="-mx-5 mt-4">
+      <div className="-mx-5 mt-3">
         <ProductList products={visibleProducts} onSelect={setSelectedProduct} />
       </div>
 

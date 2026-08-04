@@ -33,7 +33,7 @@ export function LayerRow({ layer, look }: Props) {
         {...listeners}
         data-testid={`drag-handle-${layer.category}`}
         aria-label={`Reorder ${layer.product.name}`}
-        className="shrink-0 cursor-grab touch-none px-1 text-textFaint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="shrink-0 cursor-grab touch-none px-1.5 py-1 text-base text-textFaint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         ⠿
       </button>
@@ -69,7 +69,7 @@ export function LayerRow({ layer, look }: Props) {
           aria-label={layer.visible ? "Hide layer" : "Show layer"}
           aria-pressed={layer.visible}
           data-testid={`toggle-visible-${layer.category}`}
-          className="rounded-full p-2 text-textSecondary transition-colors duration-150 hover:bg-chip hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="rounded-full p-2.5 text-textSecondary transition-colors duration-150 hover:bg-chip hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           {layer.visible ? (
             <svg
@@ -109,7 +109,7 @@ export function LayerRow({ layer, look }: Props) {
           onClick={() => removeLayer(layer.category, look)}
           aria-label={`Remove ${layer.product.name}`}
           data-testid={`remove-${layer.category}`}
-          className="rounded-full p-2 text-textSecondary transition-colors duration-150 hover:bg-chip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="rounded-full p-2.5 text-sm text-textSecondary transition-colors duration-150 hover:bg-chip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           ✕
         </button>

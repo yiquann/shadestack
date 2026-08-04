@@ -16,6 +16,25 @@ describe("DESIGN_TOKENS", () => {
     expect(DESIGN_TOKENS.colors.surface).toBe("#FFFFFF");
   });
 
+  it("has the shared hover/unavailable fill added beyond the prototype palette", () => {
+    expect(DESIGN_TOKENS.colors.chipStrong).toBe("#DCD6D0");
+  });
+
+  it("steps chipStrong clearly further from chip than chipHover does", () => {
+    // The whole point of the token: chipHover's step was too small to register
+    // on device. If someone lightens chipStrong back toward chip, this fails.
+    const channels = (hex: string) =>
+      [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    const gap = (hex: string) =>
+      channels(DESIGN_TOKENS.colors.chip).reduce(
+        (total, c, i) => total + Math.abs(c - channels(hex)[i]),
+        0
+      );
+    expect(gap(DESIGN_TOKENS.colors.chipStrong)).toBeGreaterThan(
+      gap(DESIGN_TOKENS.colors.chipHover) * 1.5
+    );
+  });
+
   it("has the two dark gradients", () => {
     expect(DESIGN_TOKENS.gradients.cameraBackdrop).toBe(
       "linear-gradient(160deg, #1a1410, #0f0c08, #1a1410)"

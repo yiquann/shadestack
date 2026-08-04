@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { computeDrawerGeometry, resolveDrag, MIN_DRAWER_HEIGHT } from "./drawerGeometry";
+import { computeDrawerGeometry, resolveDrag, MIN_DRAWER_HEIGHT, ROW_HEIGHT } from "./drawerGeometry";
 
 describe("computeDrawerGeometry", () => {
   it("uses the four-row minimum when half the screen would be shorter", () => {
-    // Half of 800 is 400, under the 478px needed for four rows plus chrome.
+    // Half of 800 is 400, under the 502px needed for four rows plus chrome.
     expect(
       computeDrawerGeometry({ innerHeight: 800, viewportHeight: 800, viewportOffsetTop: 0 })
     ).toEqual({ bottomInset: 0, height: MIN_DRAWER_HEIGHT, hasScrim: true });
@@ -25,13 +25,18 @@ describe("computeDrawerGeometry", () => {
     });
     // 24px gripper + 54px search block + 24px "Adding to Look B" caption.
     const listHeight = height - (24 + 54 + 24);
-    expect(listHeight / 94).toBeGreaterThanOrEqual(4);
+    // Derived, not a literal: the row height moves whenever ProductCard's
+    // padding does, and this guarantee should follow it rather than go stale.
+    expect(listHeight / ROW_HEIGHT).toBeGreaterThanOrEqual(4);
   });
 
   it("lifts the panel by the keyboard height, keeping its height", () => {
-    // A 300px keyboard leaves 500px visible — still roomier than the panel.
+    // A 300px keyboard on a 900px screen leaves 600px visible — still roomier
+    // than the 502px panel, so it lifts without being clamped. (800px was the
+    // old figure; four 100px rows no longer clear a keyboard on a screen that
+    // short, and the clamp case below is what covers that.)
     expect(
-      computeDrawerGeometry({ innerHeight: 800, viewportHeight: 500, viewportOffsetTop: 0 })
+      computeDrawerGeometry({ innerHeight: 900, viewportHeight: 600, viewportOffsetTop: 0 })
     ).toEqual({ bottomInset: 300, height: MIN_DRAWER_HEIGHT, hasScrim: true });
   });
 

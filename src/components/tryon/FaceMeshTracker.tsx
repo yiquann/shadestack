@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFaceLandmarks } from "@/lib/facemesh/useFaceLandmarks";
 import { fitWidth, useFitHeight } from "@/lib/tryon/useFitHeight";
 import { RenderCanvas, type RenderLooks } from "./RenderCanvas";
+import { LookPills } from "./LookPills";
 
 const IMAGE_WIDTH = 500;
 const IMAGE_HEIGHT = 600;
@@ -33,10 +34,24 @@ export function FaceMeshTracker({ looks }: Props) {
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col items-center">
-      {/* Centred: the box is aspect-locked, so when the column's width is the
-          binding constraint the leftover height is split above and below rather
-          than all pooling underneath. */}
-      <div ref={fitRef} className="flex min-h-0 w-full flex-1 items-center justify-center">
+      {state.status === "loading" && (
+        <p className="mb-2 shrink-0 text-center text-xs text-textMuted">Loading face tracking…</p>
+      )}
+      {state.status === "no-face" && (
+        <p className="mb-2 shrink-0 text-center text-xs text-textMuted">No face detected.</p>
+      )}
+      {state.status === "error" && (
+        <p className="mb-2 shrink-0 text-center text-xs text-textMuted">
+          Face tracking error: {state.message}
+        </p>
+      )}
+      {/* items-end: the box is aspect-locked, so when the column's width is the
+          binding constraint there is leftover height. It all pools above, so the
+          frame's lower edge lands on the dock boundary below — which is what
+          marks the division now that the dock draws no rule of its own. Status
+          copy sits above the frame for the same reason: nothing may come between
+          the frame and that edge. */}
+      <div ref={fitRef} className="flex min-h-0 w-full flex-1 items-end justify-center">
         <div
           // bg-bg matches both the model SVG's backdrop and the page behind it.
           // The box height is fractional (aspect-ratio off a fractional width),
@@ -75,19 +90,9 @@ export function FaceMeshTracker({ looks }: Props) {
               looks={looks}
             />
           )}
+          <LookPills looks={looks} />
         </div>
       </div>
-      {state.status === "loading" && (
-        <p className="mt-2 shrink-0 text-center text-xs text-textMuted">Loading face tracking…</p>
-      )}
-      {state.status === "no-face" && (
-        <p className="mt-2 shrink-0 text-center text-xs text-textMuted">No face detected.</p>
-      )}
-      {state.status === "error" && (
-        <p className="mt-2 shrink-0 text-center text-xs text-textMuted">
-          Face tracking error: {state.message}
-        </p>
-      )}
     </div>
   );
 }

@@ -7,8 +7,11 @@ type Props = {
   onChange: (category: CatalogProduct["category"] | "ALL") => void;
 };
 
+// Tighter padding than the page's other pills on purpose: this is a long
+// scrolling row, so trimming each chip fits more categories on screen at once.
+// The 14px label stays — only the box around it comes in.
 const CHIP_CLASS =
-  "shrink-0 whitespace-nowrap rounded-pill px-4 py-2 text-xs font-semibold transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
+  "shrink-0 whitespace-nowrap rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
 
 export function CategoryChips({ active, onChange }: Props) {
   return (

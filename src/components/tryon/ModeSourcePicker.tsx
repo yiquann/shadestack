@@ -14,7 +14,7 @@ type Props = {
 };
 
 const SEGMENT_BASE =
-  "flex-1 rounded-pill px-3 py-2 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
+  "flex-1 rounded-pill px-4 py-2.5 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
 
 export function ModeSourcePicker({ active, onChange }: Props) {
   return (

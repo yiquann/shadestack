@@ -15,6 +15,7 @@ import type { AppliedLayer } from "@/lib/tryon/session";
 import type { RenderLooks } from "./RenderCanvas";
 import { fitWidth, useFitHeight } from "@/lib/tryon/useFitHeight";
 import { BeforeAfterOverlay } from "./BeforeAfterOverlay";
+import { LookPills } from "./LookPills";
 
 // Segmentation (a second GPU model + a CPU readback) only feeds foundation's
 // skin clip. When no foundation is applied it's pure waste, so skip it.
@@ -350,7 +351,21 @@ export function CameraSource({ looks, facingMode }: Props) {
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col items-center">
-      <div ref={fitRef} className="flex min-h-0 w-full flex-1 items-center justify-center">
+      {status === "denied" && (
+        <p className="mb-2 shrink-0 text-center text-xs text-textMuted">
+          Camera access is needed for live try-on. Enable it in your browser settings.
+        </p>
+      )}
+      {status === "error" && (
+        <p className="mb-2 shrink-0 text-center text-xs text-textMuted">
+          No camera available: {message}
+        </p>
+      )}
+      {/* items-end: leftover height pools above, so the frame's lower edge lands
+          on the dock boundary — which is what marks the division now that the
+          dock draws no rule of its own. Status copy sits above the frame for the
+          same reason. */}
+      <div ref={fitRef} className="flex min-h-0 w-full flex-1 items-end justify-center">
         <div
           ref={containerRef}
           className="relative mx-auto overflow-hidden rounded-card bg-ink"
@@ -390,6 +405,7 @@ export function CameraSource({ looks, facingMode }: Props) {
           className="pointer-events-none absolute inset-0 h-full w-full"
           style={{ transform: "scaleX(-1)" }}
         />
+          <LookPills looks={looks} />
           {comparing && <BeforeAfterOverlay targetRef={containerRef} />}
           {SHOW_FPS && status === "ready" && (
             <span className="absolute left-2 top-2 rounded-pill bg-ink/60 px-2 py-1 text-[10px] font-semibold text-surface">
@@ -398,17 +414,6 @@ export function CameraSource({ looks, facingMode }: Props) {
           )}
         </div>
       </div>
-
-      {status === "denied" && (
-        <p className="mt-2 shrink-0 text-center text-xs text-textMuted">
-          Camera access is needed for live try-on. Enable it in your browser settings.
-        </p>
-      )}
-      {status === "error" && (
-        <p className="mt-2 shrink-0 text-center text-xs text-textMuted">
-          No camera available: {message}
-        </p>
-      )}
     </div>
   );
 }
