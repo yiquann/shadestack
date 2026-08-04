@@ -11,6 +11,10 @@ export const DESIGN_TOKENS = {
     textFaint: "#B8ADA5",
     border: "#EDE5DD",
     surface: "#FFFFFF",
+    // The one "pressed back" chip fill, shared by hover and unavailable: a
+    // control is either at rest or not. Not from the original prototype palette,
+    // which had no neutral and whose chipHover step was too small to register.
+    chipStrong: "#DCD6D0",
   },
   gradients: {
     cameraBackdrop: "linear-gradient(160deg, #1a1410, #0f0c08, #1a1410)",
